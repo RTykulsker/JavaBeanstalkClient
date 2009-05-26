@@ -1,0 +1,17 @@
+This is JavaBeanstalkClient, a Java Client for beanstalkd
+
+See http://xph.us/software/beanstalkd for general info
+
+To build JavaBeanstalkClient, type "mvn install"
+
+This client library is designed to operate with other client libraries; 
+hence jobs are opaque byte arrays, job ids require the use of a Java long (to support 
+unsigned ints up to 2**32), etc. 
+
+The implementation of the library is based upon the design of the Python beanstalkc at
+http://github.com/earl/beanstalkc/tree/master
+
+Documentation on how to use Beanstalkd is available at
+http://github.com/kr/beanstalkd/tree/v1.3/doc/protocol.txt?raw=true
+and
+http://github.com/earl/beanstalkc/tree/master

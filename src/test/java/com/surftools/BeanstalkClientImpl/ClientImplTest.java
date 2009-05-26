@@ -1,0 +1,749 @@
+package com.surftools.BeanstalkClientImpl;
+
+/*
+
+ Copyright 2009 Robert Tykulsker 
+
+ This file is part of JavaBeanstalkCLient.
+
+ JavaBeanstalkCLient is free software: you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation, either version 3 of the License, or
+ (at your option) any later version.
+
+ JavaBeanstalkCLient is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+
+ You should have received a copy of the GNU General Public License
+ along with JavaBeanstalkCLient.  If not, see <http://www.gnu.org/licenses/>.
+
+ */
+
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+import com.surftools.BeanstalkClient.BeanstalkException;
+import com.surftools.BeanstalkClient.Client;
+import com.surftools.BeanstalkClient.Job;
+
+import junit.framework.Test;
+import junit.framework.TestCase;
+import junit.framework.TestSuite;
+
+public class ClientImplTest extends TestCase {
+
+	private String TEST_HOST = "localhost";
+	private int TEST_PORT = 11300;
+
+	
+	public ClientImplTest(String testName) {
+		super(testName);
+	}
+
+	
+	public static Test suite() {
+		return new TestSuite(ClientImplTest.class);
+	}
+
+	
+	// ****************************************************************
+	// Support methods
+	// ****************************************************************
+
+	/**
+	 * ignore all currently watched tubes, retuned in ret[0] watch a new tube,
+	 * returned in ret[1]
+	 */
+	Object[] pushWatchedTubes(Client client) {
+		Object[] tubeNames = new Object[2];
+		List<String> list = client.listTubesWatched();
+		
+		String newTubeName = "tube-" + UUID.randomUUID().toString();
+		client.watch(newTubeName);
+
+		for (String existingTubeName : list) {
+			client.ignore(existingTubeName);
+		}
+
+		tubeNames[0] = list;
+		tubeNames[1] = newTubeName;
+
+		return tubeNames;
+	}
+
+	@SuppressWarnings("unchecked")
+	void popWatchedTubes(Client client, Object[] tubeNames) {
+		for (String tubeName : (List<String>) tubeNames[0]) {
+			client.watch(tubeName);
+		}
+
+		client.ignore((String) tubeNames[1]);
+	}
+
+	
+	// ****************************************************************
+	// Producer methods
+	// ****************************************************************
+	public void testUseTube() {
+		Client client = new ClientImpl(TEST_HOST, TEST_PORT);
+		client.useTube("foobar");
+
+		// underscores are not valid in tube names
+		try {
+			client.useTube("foobar_");
+			fail("no BAD_FORMAT thrown");
+		} catch (BeanstalkException be) {
+			assertEquals("BAD_FORMAT", be.getMessage());
+		} catch (Exception e) {
+			fail(e.getMessage());
+		}
+	}
+
+	
+	public void testPut() {
+
+		Client client = new ClientImpl(TEST_HOST, TEST_PORT);
+		long jobId = client.put(65536, 0, 120, "testPut".getBytes());
+		assertTrue(jobId > 0);
+		client.delete(jobId);
+
+		// invalid priority
+		try {
+			jobId = client
+					.put(-1, 0, 120, "testPutNegativePriority".getBytes());
+			client.delete(jobId);
+			fail("no BAD_FORMAT thrown");
+		} catch (BeanstalkException be) {
+			assertEquals("BAD_FORMAT", be.getMessage());
+		} catch (Exception e) {
+			fail(e.getMessage());
+		}
+
+		// invalid priority
+		try {
+			jobId = client.put(Long.MAX_VALUE, 0, 120, "testPutHugePriority"
+					.getBytes());
+			client.delete(jobId);
+			fail("no UNKNOWN_COMMAND thrown");
+		} catch (BeanstalkException be) {
+			assertEquals("invalid priority", be.getMessage());
+		} catch (Exception e) {
+			fail(e.getMessage());
+		}
+
+		// null data
+		try {
+			jobId = client.put(65536, 0, 120, null);
+			client.delete(jobId);
+			fail("no exception");
+		} catch (BeanstalkException be) {
+			assertEquals("null data", be.getMessage());
+		} catch (Exception e) {
+			fail(e.getMessage());
+		}
+	}
+
+	// ****************************************************************
+	// Consumer methods
+	// job-related
+	// ****************************************************************
+
+	
+	@SuppressWarnings("unchecked")
+	public void testReserve() {
+
+		Client client = new ClientImpl(TEST_HOST, TEST_PORT);
+
+		Object[] tubeNames = pushWatchedTubes(client);
+
+		// create an arbitrary data structure
+		String srcString = "testReserve";
+		List<String> srcList = new ArrayList<String>();
+		srcList.add(null);
+		srcList.add(srcString);
+		Map<String, List<String>> srcMap = new HashMap<String, List<String>>();
+		srcMap.put("key", srcList);
+		byte[] srcBytes = Serializer.serializableToByteArray((Serializable) srcMap);
+
+		// producer
+		client.useTube((String) tubeNames[1]);
+		long jobId = client.put(65536, 0, 120, srcBytes);
+		assertTrue(jobId > 0);
+
+		// consumer
+		Job job = client.reserve(null);
+		assertNotNull(job);
+		long newJobId = job.getJobId();
+		assertEquals(jobId, newJobId);
+
+		// unpack bytes
+		byte[] dstBytes = job.getData();
+		Map<String, List<String>> dstMap = (Map<String, List<String>>) Serializer
+				.byteArrayToSerializable(dstBytes);
+		List<String> dstList = dstMap.get("key");
+		String dstString = dstList.get(1);
+		assertEquals(srcString, dstString);
+
+		client.delete(job.getJobId());
+
+		popWatchedTubes(client, tubeNames);
+	}
+
+	
+	public void testReserveWithTimeout() {
+
+		Client client = new ClientImpl(TEST_HOST, TEST_PORT);
+
+		Object[] tubeNames = pushWatchedTubes(client);
+
+		String srcString = "testReserveWithTimeout";
+
+		int timeoutSeconds = 2;
+
+		// producer
+		client.useTube((String) tubeNames[1]);
+		long putMillis = System.currentTimeMillis();
+		long jobId = client.put(65536, timeoutSeconds, 120, srcString
+				.getBytes());
+		assertTrue(jobId > 0);
+
+		// consumer
+		Job job = client.reserve(timeoutSeconds);
+		long getMillis = System.currentTimeMillis();
+
+		assertNotNull(job);
+		long newJobId = job.getJobId();
+		assertEquals(jobId, newJobId);
+
+		String dstString = new String(job.getData());
+		assertEquals(srcString, dstString);
+
+		long deltaSeconds = (getMillis - putMillis) / 1000;
+		assertTrue(deltaSeconds >= timeoutSeconds);
+
+		client.delete(job.getJobId());
+
+		// now try to achieve a TIMED_OUT
+		jobId = client
+				.put(65536, 2 * timeoutSeconds, 120, srcString.getBytes());
+		assertTrue(jobId > 0);
+
+		job = client.reserve(timeoutSeconds);
+		assertNull(job);
+
+		popWatchedTubes(client, tubeNames);
+	}
+
+	
+	public void testDelete() {
+
+		Client client = new ClientImpl(TEST_HOST, TEST_PORT);
+
+		Object[] tubeNames = pushWatchedTubes(client);
+
+		String srcString = "testDelete";
+
+		client.useTube((String) tubeNames[1]);
+		long jobId = client.put(65536, 0, 120, srcString.getBytes());
+		assertTrue(jobId > 0);
+
+		Job job = client.reserve(null);
+		assertNotNull(job);
+		boolean ok = client.delete(job.getJobId());
+		assertTrue(ok);
+
+		// delete a second time
+		ok = client.delete(job.getJobId());
+		assertFalse(ok);
+
+		popWatchedTubes(client, tubeNames);
+	}
+
+	
+	public void testRelease() {
+
+		Client client = new ClientImpl(TEST_HOST, TEST_PORT);
+
+		Object[] tubeNames = pushWatchedTubes(client);
+
+		String srcString = "testReserveWithTimeout";
+
+		int timeoutSeconds = 2;
+
+		// producer
+		client.useTube((String) tubeNames[1]);
+		long jobId = client.put(65536, timeoutSeconds, 120, srcString
+				.getBytes());
+		assertTrue(jobId > 0);
+
+		// not found
+		boolean ok = client.release(jobId, 65536, 0);
+		assertFalse(ok);
+
+		Job job = client.reserve(null);
+		assertNotNull(job);
+		assertEquals(jobId, job.getJobId());
+
+		// quick release
+		ok = client.release(jobId, 65536, 0);
+		assertTrue(ok);
+
+		job = client.reserve(null);
+		assertNotNull(job);
+		assertEquals(jobId, job.getJobId());
+
+		ok = client.delete(jobId);
+		assertTrue(ok);
+
+		ok = client.release(jobId, 65536, 0);
+		assertFalse(ok);
+
+		popWatchedTubes(client, tubeNames);
+	}
+
+	
+	public void testBuryKick() {
+
+		Client client = new ClientImpl(TEST_HOST, TEST_PORT);
+
+		Object[] tubeNames = pushWatchedTubes(client);
+
+		String srcString = "testBuryKick";
+
+		// nothing to bury
+		boolean ok = false;
+		ok = client.bury(0, 65536);
+		assertFalse(ok);
+
+		// producer
+		client.useTube((String) tubeNames[1]);
+		long jobId = client.put(65536, 0, 120, srcString.getBytes());
+		assertTrue(jobId > 0);
+
+		// we haven't reserved, so we can't bury
+		ok = client.bury(jobId, 65536);
+		assertFalse(ok);
+
+		// we can bury
+		Job job = client.reserve(0);
+		assertNotNull(job);
+		ok = client.bury(jobId, 65536);
+		assertTrue(ok);
+
+		// nothing to reserve
+		job = client.reserve(0);
+		assertNull(job);
+
+		// kick nothing
+		int count = client.kick(0);
+		assertEquals(0, count);
+		job = client.reserve(0);
+		assertNull(job);
+
+		// kick something
+		count = client.kick(1);
+		assertEquals(1, count);
+		job = client.reserve(0);
+		assertNotNull(job);
+		assertEquals(jobId, job.getJobId());
+		assertEquals(srcString, new String(job.getData()));
+
+		client.delete(jobId);
+
+		popWatchedTubes(client, tubeNames);
+	}
+
+	
+	public void testTouch() {
+
+		Client client = new ClientImpl(TEST_HOST, TEST_PORT);
+
+		Object[] tubeNames = pushWatchedTubes(client);
+
+		String srcString = "testTouch";
+		int timeoutSeconds = 2;
+
+		// nothing to touch
+		boolean ok = false;
+		ok = client.touch(0);
+		assertFalse(ok);
+
+		// producer
+		client.useTube((String) tubeNames[1]);
+		long jobId = client.put(65536, 0, timeoutSeconds, srcString.getBytes());
+		assertTrue(jobId > 0);
+
+		// we haven't reserved, so we can't touch
+		ok = client.touch(jobId);
+		assertFalse(ok);
+
+		// reserve the job
+		Job job = client.reserve(null);
+		assertNotNull(job);
+
+		// try to reserve another job
+		try {
+			job = client.reserve(2 * timeoutSeconds);
+			fail("expected DEADLINE_SOON");
+		} catch (BeanstalkException be) {
+			String message = be.getMessage();
+			assertEquals("DEADLINE_SOON", message);
+			ok = client.touch(jobId);
+			assertTrue(ok);
+		} catch (Exception e) {
+			fail("caught exception: " + e.getMessage());
+		}
+
+		client.delete(jobId);
+
+		popWatchedTubes(client, tubeNames);
+	}
+	
+
+	// ****************************************************************
+	// Consumer methods
+	// stats-related
+	// ****************************************************************
+	public void testListTubeUsed() {
+		Client client = new ClientImpl(TEST_HOST, TEST_PORT);
+		String s = client.listTubeUsed();
+		assertNotNull(s);
+
+		boolean dump = false;
+		if (dump) {
+			System.out.println("using tube: " + s);
+		}
+	}
+
+	
+	public void testListTubes() {
+		Client client = new ClientImpl(TEST_HOST, TEST_PORT);
+		List<String> list = client.listTubes();
+		assertNotNull(list);
+
+		boolean dump = false;
+		if (dump) {
+			for (String tube : list) {
+				System.out.println("tube: " + tube);
+			}
+		}
+	}
+
+	
+	public void testListTubesWatched() {
+		Client client = new ClientImpl(TEST_HOST, TEST_PORT);
+		List<String> list = client.listTubesWatched();
+		assertNotNull(list);
+		int initialWatchCount = list.size();
+		assertTrue(initialWatchCount >= 1);
+
+		String tubeName = "tube-" + UUID.randomUUID().toString();
+		int watchCount = client.watch(tubeName);
+		assertEquals(initialWatchCount + 1, watchCount);
+
+		list = client.listTubesWatched();
+		assertNotNull(list);
+		assertEquals(watchCount, list.size());
+		assertTrue(list.contains(tubeName));
+
+		boolean dump = false;
+		if (dump) {
+			for (String tube : list) {
+				System.out.println("watching tube: " + tube);
+			}
+		}
+
+		watchCount = client.ignore(tubeName);
+		assertEquals(initialWatchCount, watchCount);
+		list = client.listTubesWatched();
+		assertNotNull(list);
+		assertEquals(initialWatchCount, list.size());
+		assertFalse(list.contains(tubeName));
+
+	}
+	
+
+	public void testStats() {
+		Client client = new ClientImpl(TEST_HOST, TEST_PORT);
+		Map<String, String> map = client.stats();
+		assertNotNull(map);
+
+		boolean dump = false;
+		if (dump) {
+			for (String key : map.keySet()) {
+				System.out.println("key = " + key + ", ==> " + map.get(key));
+			}
+		}
+	}
+	
+
+	public void testStatsTube() {
+
+		Client client = new ClientImpl(TEST_HOST, TEST_PORT);
+
+		Map<String, String> map = client.statsTube(null);
+		assertNull(map);
+
+		map = client.statsTube("tube-" + UUID.randomUUID().toString());
+		assertNull(map);
+
+		Object[] tubeNames = pushWatchedTubes(client);
+
+		String srcString = "testStatsTube";
+
+		// producer
+		client.useTube((String) tubeNames[1]);
+		long jobId = client.put(65536, 0, 120, srcString.getBytes());
+		assertTrue(jobId > 0);
+
+		Job job = client.reserve(null);
+		assertNotNull(job);
+		client.delete(jobId);
+
+		map = client.statsTube((String) tubeNames[1]);
+		assertNotNull(map);
+
+		boolean dump = false;
+		if (dump) {
+			for (String key : map.keySet()) {
+				System.out.println("key = " + key + ", ==> " + map.get(key));
+			}
+		}
+
+		popWatchedTubes(client, tubeNames);
+	}
+	
+
+	public void testStatsJob() {
+
+		Client client = new ClientImpl(TEST_HOST, TEST_PORT);
+
+		Map<String, String> map = client.statsJob(0);
+		assertNull(map);
+
+		Object[] tubeNames = pushWatchedTubes(client);
+
+		String srcString = "testStatsJob";
+
+		// producer
+		client.useTube((String) tubeNames[1]);
+		long jobId = client.put(65536, 0, 120, srcString.getBytes());
+		assertTrue(jobId > 0);
+
+		Job job = client.reserve(null);
+		assertNotNull(job);
+
+		map = client.statsJob(jobId);
+		assertNotNull(map);
+
+		boolean dump = false;
+		if (dump) {
+			for (String key : map.keySet()) {
+				System.out.println("key = " + key + ", ==> " + map.get(key));
+			}
+		}
+
+		client.delete(jobId);
+
+		popWatchedTubes(client, tubeNames);
+	}
+	
+
+	// ****************************************************************
+	// Consumer methods
+	// peek-related
+	// ****************************************************************
+	public void testPeek() {
+
+		Client client = new ClientImpl(TEST_HOST, TEST_PORT);
+
+		Object[] tubeNames = pushWatchedTubes(client);
+		client.useTube((String) tubeNames[1]);
+
+		Job job = client.peek(-1);
+		assertNull(job);
+		job = client.peek(0);
+		assertNull(job);
+
+		String srcString = "testPeek-";
+
+		int nJobs = 3;
+		long[] jobIds = new long[nJobs];
+
+		// producer
+		for (int i = 0; i < nJobs; ++i) {
+			client.useTube((String) tubeNames[1]);
+			long jobId = client.put(65536, 0, 120, (srcString + i).getBytes());
+			assertTrue(jobId > 0);
+			jobIds[i] = jobId;
+		}
+
+		// peek 'em once
+		for (int i = 0; i < nJobs; ++i) {
+			job = client.peek(jobIds[i]);
+			assertNotNull(job);
+			assertEquals(jobIds[i], job.getJobId());
+		}
+
+		// peek 'em again
+		for (int i = 0; i < nJobs; ++i) {
+			job = client.peek(jobIds[i]);
+			assertNotNull(job);
+			assertEquals(jobIds[i], job.getJobId());
+		}
+
+		// reserve and delete
+		for (int i = 0; i < nJobs; ++i) {
+			job = client.reserve(null);
+			assertNotNull(job);
+			assertEquals(jobIds[i], job.getJobId());
+			client.delete(job.getJobId());
+		}
+
+		// peek one last time
+		for (int i = 0; i < nJobs; ++i) {
+			job = client.peek(jobIds[i]);
+			assertNull(job);
+		}
+
+		popWatchedTubes(client, tubeNames);
+	}
+
+	
+	public void testReady() {
+
+		Client client = new ClientImpl(TEST_HOST, TEST_PORT);
+
+		Object[] tubeNames = pushWatchedTubes(client);
+		client.useTube((String) tubeNames[1]);
+
+		String srcString = "testPeekReady-";
+
+		int nJobs = 3;
+		long[] jobIds = new long[nJobs];
+
+		// producer
+		for (int i = 0; i < nJobs; ++i) {
+			client.useTube((String) tubeNames[1]);
+			long jobId = client.put(65536, 0, 120, (srcString + i).getBytes());
+			assertTrue(jobId > 0);
+			jobIds[i] = jobId;
+		}
+
+		// peek 'em once
+		Job job = null;
+		for (int i = 0; i < nJobs; ++i) {
+			job = client.peekReady();
+			assertNotNull(job);
+			assertEquals(jobIds[0], job.getJobId());
+		}
+
+		// reserve and delete
+		for (int i = 0; i < nJobs; ++i) {
+			job = client.reserve(null);
+			assertNotNull(job);
+			assertEquals(jobIds[i], job.getJobId());
+			client.delete(job.getJobId());
+		}
+
+		// peek one last time
+		for (int i = 0; i < nJobs; ++i) {
+			job = client.peekReady();
+			assertNull(job);
+		}
+
+		popWatchedTubes(client, tubeNames);
+	}
+	
+	
+	public void testDelayed() {
+
+		Client client = new ClientImpl(TEST_HOST, TEST_PORT);
+
+		Object[] tubeNames = pushWatchedTubes(client);
+		client.useTube((String) tubeNames[1]);
+
+		String srcString = "testPeekDelay";
+		int delaySeconds = 2;
+
+		// producer
+		client.useTube((String) tubeNames[1]);
+		// note we adjust delay
+		long jobId = client.put(65536, delaySeconds, 120, srcString.getBytes());
+		assertTrue(jobId > 0);
+	
+		
+		// peekDelayed
+		Job job = client.peekDelayed();
+		assertNotNull(job);
+		assertEquals(jobId, job.getJobId());
+		
+		try {
+			Thread.sleep(delaySeconds * 1000);
+		} catch (Exception e) {
+			
+		}
+	
+		// reserve and delete
+		job = client.reserve(null);
+		assertNotNull(job);
+		assertEquals(jobId, job.getJobId());
+		client.delete(job.getJobId());
+
+		// peek one last time
+		job = client.peekDelayed();
+		assertNull(job);
+
+		popWatchedTubes(client, tubeNames);
+	}
+	
+	
+	public void testBuried() {
+
+		Client client = new ClientImpl(TEST_HOST, TEST_PORT);
+
+		Object[] tubeNames = pushWatchedTubes(client);
+		client.useTube((String) tubeNames[1]);
+
+		String srcString = "testPeekBuried";
+		
+		// peekBuried
+		Job job = client.peekBuried();
+		assertNull(job);
+		
+		// producer
+		long jobId = client.put(65536, 0, 120, srcString .getBytes());
+		assertTrue(jobId > 0);
+		
+		// peekBuried
+		job = client.peekBuried();
+		assertNull(job);
+		
+		// reserve and bury
+		job = client.reserve(null);
+		assertNotNull(job);
+		assertEquals(jobId, job.getJobId());
+		client.bury(job.getJobId(), 65536);
+		
+		// peekBuried
+		job = client.peekBuried();
+		assertNotNull(job);
+		assertEquals(jobId, job.getJobId());
+
+		// delete
+		client.delete(jobId);
+
+		// peekBuried
+		job = client.peekBuried();
+		assertNull(job);
+
+		popWatchedTubes(client, tubeNames);
+	}
+	
+}
