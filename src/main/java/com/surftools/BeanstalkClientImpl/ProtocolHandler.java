@@ -125,6 +125,14 @@ public class ProtocolHandler {
 		try {
 			while (true) {
 				byte b = (byte) is.read();
+				
+				/**
+				 * prevent OutOfMemory exceptions, per leopoldkot			
+				 */
+				if  (b == -1) { 
+					throw new BeanstalkException("The end of InputStream is reached");
+				}
+			
 				baos.write(b);
 				if (b == '\n' && lastByteWasReturnByte) {
 					break;
