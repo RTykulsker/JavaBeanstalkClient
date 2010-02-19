@@ -32,15 +32,24 @@ public class ClientImpl implements Client {
 	
 	private static final String VERSION = "1.0.0";
 	private static final long MAX_PRIORITY = 4294967296L;
-
-	private ProtocolHandler protocolHandler;	
+	
+	private String host;
+	private int port;
+	
+	private ThreadLocal<ProtocolHandler> protocolHandler = new ThreadLocal<ProtocolHandler> () {
+		@Override 
+		protected ProtocolHandler initialValue () {
+			return new ProtocolHandler (host,port);
+		}
+	};
 	
 	public ClientImpl() {
 		this(DEFAULT_HOST, DEFAULT_PORT);
 	}
 	
 	public ClientImpl(String host, int port) {
-		protocolHandler = new ProtocolHandler(host, port);
+		this.host = host;
+		this.port = port;
 	}
 	
 	// ****************************************************************
@@ -61,7 +70,7 @@ public class ClientImpl implements Client {
 			new String[] {"JOB_TOO_BIG"},
 			data,
 			ExpectedResponse.None);
-        Response response = protocolHandler.processRequest(request);
+        Response response = protocolHandler.get().processRequest(request);
         if (response != null && response.getStatus().equals("JOB_TOO_BIG")) {
         	BeanstalkException be = new BeanstalkException(response.getStatus());
         	throw be;
@@ -79,7 +88,7 @@ public class ClientImpl implements Client {
 			null,
 			null,
 			ExpectedResponse.None);
-		protocolHandler.processRequest(request);
+		protocolHandler.get().processRequest(request);
 	}
 	
 	// ****************************************************************
@@ -97,7 +106,7 @@ public class ClientImpl implements Client {
 				new String[] {"DEADLINE_SOON", "TIMED_OUT", },
 				null,
 				ExpectedResponse.ByteArray);
-	        Response response = protocolHandler.processRequest(request);
+	        Response response = protocolHandler.get().processRequest(request);
 	        if (response != null && response.getStatus().equals("DEADLINE_SOON")) {
 	        	BeanstalkException be = new BeanstalkException(response.getStatus());
 	        	throw be;
@@ -117,7 +126,7 @@ public class ClientImpl implements Client {
 			"NOT_FOUND",
 			null,
 			ExpectedResponse.None);
-        Response response = protocolHandler.processRequest(request);
+        Response response = protocolHandler.get().processRequest(request);
 		return response != null && response.isMatchOk();
 	}
 	
@@ -128,7 +137,7 @@ public class ClientImpl implements Client {
 			new String[] {"NOT_FOUND", "BURIED"},
 			null,
 			ExpectedResponse.None);
-		Response response = protocolHandler.processRequest(request);
+		Response response = protocolHandler.get().processRequest(request);
 		return response != null && response.isMatchOk();
 	}
 
@@ -139,7 +148,7 @@ public class ClientImpl implements Client {
 			"NOT_FOUND",
 			null,
 			ExpectedResponse.None);
-		Response response = protocolHandler.processRequest(request);
+		Response response = protocolHandler.get().processRequest(request);
 		return response != null && response.isMatchOk();
 	}
 	
@@ -150,7 +159,7 @@ public class ClientImpl implements Client {
 			"NOT_FOUND",
 			null,
 			ExpectedResponse.None);
-		Response response = protocolHandler.processRequest(request);
+		Response response = protocolHandler.get().processRequest(request);
 		return response != null && response.isMatchOk();
 	}
 	
@@ -165,7 +174,7 @@ public class ClientImpl implements Client {
 				null,
 				null,
 				ExpectedResponse.None);
-	        Response response = protocolHandler.processRequest(request);
+	        Response response = protocolHandler.get().processRequest(request);
 			return Integer.parseInt(response.getReponse());
 	}
 
@@ -176,7 +185,7 @@ public class ClientImpl implements Client {
 				null,
 				null,
 				ExpectedResponse.None);
-	        Response response = protocolHandler.processRequest(request);
+	        Response response = protocolHandler.get().processRequest(request);
 			return Integer.parseInt(response.getReponse());
 	}
 	
@@ -192,7 +201,7 @@ public class ClientImpl implements Client {
 			"NOT_FOUND",
 			null,
 			ExpectedResponse.ByteArray);
-		Response response = protocolHandler.processRequest(request);
+		Response response = protocolHandler.get().processRequest(request);
 		if (response != null && response.isMatchOk()) {
 			jobId = Long.parseLong(response.getReponse());
 			job = new JobImpl(jobId);
@@ -209,7 +218,7 @@ public class ClientImpl implements Client {
 			"NOT_FOUND",
 			null,
 			ExpectedResponse.ByteArray);
-		Response response = protocolHandler.processRequest(request);
+		Response response = protocolHandler.get().processRequest(request);
 		if (response != null && response.isMatchOk()) {
 			long jobId = Long.parseLong(response.getReponse());
 			job = new JobImpl(jobId);
@@ -226,7 +235,7 @@ public class ClientImpl implements Client {
 			"NOT_FOUND",
 			null,
 			ExpectedResponse.ByteArray);
-		Response response = protocolHandler.processRequest(request);
+		Response response = protocolHandler.get().processRequest(request);
 		if (response != null && response.isMatchOk()) {
 			long jobId = Long.parseLong(response.getReponse());
 			job = new JobImpl(jobId);
@@ -243,7 +252,7 @@ public class ClientImpl implements Client {
 			"NOT_FOUND",
 			null,
 			ExpectedResponse.ByteArray);
-		Response response = protocolHandler.processRequest(request);
+		Response response = protocolHandler.get().processRequest(request);
 		if (response != null && response.isMatchOk()) {
 			long jobId = Long.parseLong(response.getReponse());
 			job = new JobImpl(jobId);
@@ -259,7 +268,7 @@ public class ClientImpl implements Client {
 			null,
 			null,
 			ExpectedResponse.None);
-		Response response = protocolHandler.processRequest(request);
+		Response response = protocolHandler.get().processRequest(request);
 		if (response != null && response.isMatchOk()) {
 			count = Integer.parseInt(response.getReponse());
 		}
@@ -278,7 +287,7 @@ public class ClientImpl implements Client {
 				"NOT_FOUND",
 				null,
 				ExpectedResponse.Map);
-	        Response response = protocolHandler.processRequest(request);
+	        Response response = protocolHandler.get().processRequest(request);
 	        Map<String, String> map = null;
 			if (response != null && response.isMatchOk()) {			
 				map = (Map<String, String>) response.getData();
@@ -298,7 +307,7 @@ public class ClientImpl implements Client {
 				"NOT_FOUND",
 				null,
 				ExpectedResponse.Map);
-	        Response response = protocolHandler.processRequest(request);
+	        Response response = protocolHandler.get().processRequest(request);
 	        Map<String, String> map = null;
 			if (response != null && response.isMatchOk()) {			
 				map = (Map<String, String>) response.getData();
@@ -314,7 +323,7 @@ public class ClientImpl implements Client {
 			null,
 			null,
 			ExpectedResponse.Map);
-        Response response = protocolHandler.processRequest(request);
+        Response response = protocolHandler.get().processRequest(request);
         Map<String, String> map = null;
 		if (response != null && response.isMatchOk()) {			
 			map = (Map<String, String>) response.getData();
@@ -330,7 +339,7 @@ public class ClientImpl implements Client {
 			null,
 			null,
 			ExpectedResponse.List);
-        Response response = protocolHandler.processRequest(request);
+        Response response = protocolHandler.get().processRequest(request);
         List<String> list = null;
 		if (response != null && response.isMatchOk()) {			
 			list = (List<String>) response.getData();
@@ -346,7 +355,7 @@ public class ClientImpl implements Client {
 			null,
 			null,
 			ExpectedResponse.None);
-        Response response = protocolHandler.processRequest(request);
+        Response response = protocolHandler.get().processRequest(request);
 		if (response != null && response.isMatchOk()) {			
 			tubeName = response.getReponse();
 		}
@@ -361,7 +370,7 @@ public class ClientImpl implements Client {
 			null,
 			null,
 			ExpectedResponse.List);
-        Response response = protocolHandler.processRequest(request);
+        Response response = protocolHandler.get().processRequest(request);
         List<String> list = null;
 		if (response != null && response.isMatchOk()) {			
 			list = (List<String>) response.getData();
