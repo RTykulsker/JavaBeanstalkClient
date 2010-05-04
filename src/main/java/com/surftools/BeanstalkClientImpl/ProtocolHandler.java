@@ -124,12 +124,13 @@ public class ProtocolHandler {
 		boolean lastByteWasReturnByte = false;
 		try {
 			while (true) {
-				byte b = (byte) is.read();
+				int intB = is.read();
+				byte b = (byte) intB;
 				
 				/**
 				 * prevent OutOfMemory exceptions, per leopoldkot			
 				 */
-				if  (b == -1) { 
+				if  (intB == -1) { 
 					throw new BeanstalkException("The end of InputStream is reached");
 				}
 			
