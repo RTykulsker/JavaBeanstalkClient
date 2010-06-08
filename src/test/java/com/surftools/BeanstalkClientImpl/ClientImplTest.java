@@ -94,9 +94,9 @@ public class ClientImplTest extends TestCase {
 		Client client = new ClientImpl(TEST_HOST, TEST_PORT);
 		client.useTube("foobar");
 
-		// underscores are not valid in tube names
+		// Names cannot start with hyphen
 		try {
-			client.useTube("foobar_");
+			client.useTube("-foobar");
 			fail("no BAD_FORMAT thrown");
 		} catch (BeanstalkException be) {
 			assertEquals("BAD_FORMAT", be.getMessage());
