@@ -93,14 +93,21 @@ public class ClientImplTest extends TestCase {
 	public void testUseTube() {
 		Client client = new ClientImpl(TEST_HOST, TEST_PORT);
 		client.useTube("foobar");
-
-		// underscores are not valid in tube names
+		
+		// hashes are not valid in tube names
 		try {
-			client.useTube("foobar_");
+			client.useTube("foobar#");
 			fail("no BAD_FORMAT thrown");
 		} catch (BeanstalkException be) {
 			assertEquals("BAD_FORMAT", be.getMessage());
 		} catch (Exception e) {
+			fail(e.getMessage());
+		}
+
+		// underscores are now valid in tube names
+		try {
+			client.useTube("foobar_");
+		} catch ( Exception e ) {
 			fail(e.getMessage());
 		}
 	}
