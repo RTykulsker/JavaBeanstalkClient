@@ -27,6 +27,7 @@ public class Request {
 	private String[] errorStates;
 	private byte[] data;
 	private ExpectedResponse expectedResponse;
+	private int expectedDataLengthIndex;
 
 	
 	public Request() {		
@@ -37,7 +38,13 @@ public class Request {
 		this.validStates = validStates;
 		this.errorStates = errorStates;
 		this.data = data;
-		this.expectedResponse = expectedResponse;		
+		this.expectedResponse = expectedResponse;	
+		this.expectedDataLengthIndex = -1;
+	}
+	
+	public Request(String command, String[] validStates, String[] errorStates, byte[] data, ExpectedResponse expectedResponse, int expectedDataLengthIndex ) {
+		this( command, validStates, errorStates, data, expectedResponse );
+		this.expectedDataLengthIndex = expectedDataLengthIndex;
 	}
 	
 	public Request(String command, String validState, String errorState, byte[] data, ExpectedResponse expectedResponse) {
@@ -53,6 +60,12 @@ public class Request {
 		
 		this.data = data;
 		this.expectedResponse = expectedResponse;	
+		this.expectedDataLengthIndex = -1;
+	}
+	
+	public Request(String command, String validState, String errorState, byte[] data, ExpectedResponse expectedResponse, int expectedDataLengthIndex) {
+		this( command, validState, errorState, data, expectedResponse );
+		this.expectedDataLengthIndex = expectedDataLengthIndex;
 	}
 	
 	public String getCommand() {
@@ -93,5 +106,12 @@ public class Request {
 	
 	public void setExpectedResponse(ExpectedResponse expectedResponse) {
 		this.expectedResponse = expectedResponse;
+	}
+	
+	public void setExpectedDataLengthIndex( int index ) {
+		this.expectedDataLengthIndex = index;
+	}
+	public int getExpectedDataLengthIndex() {
+		return this.expectedDataLengthIndex;
 	}
 }

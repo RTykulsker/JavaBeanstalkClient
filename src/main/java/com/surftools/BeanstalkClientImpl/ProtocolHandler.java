@@ -71,7 +71,7 @@ public class ProtocolHandler {
 			os.flush();
 							
 			is = socket.getInputStream();
-			String line = new String(readInputStream(is));
+			String line = new String(readInputStream(is, 0 ));
 	
 			String[] tokens = line.split(" ");
 			if (tokens == null || tokens.length == 0) {
@@ -101,7 +101,15 @@ public class ProtocolHandler {
 				if (response.isMatchError()) {
 					break;
 				}
-				byte[] data = readInputStream(is);
+				int length = 0;
+				if( request.getExpectedDataLengthIndex() > 0 && tokens.length > request.getExpectedDataLengthIndex()) {
+					try {
+						length = Integer.parseInt(tokens[request.getExpectedDataLengthIndex()]);
+					} catch( NumberFormatException ex ) {
+						length = 0;
+					}
+				}
+				byte[] data = readInputStream( is, length );
 				response.setData(data);
 				break;
 			default:
@@ -115,39 +123,68 @@ public class ProtocolHandler {
 	}
 	
 	
-	private byte[] readInputStream(InputStream is) {
+	private byte[] readInputStream(InputStream is, int expectedLength ) {
 		if (is == null) {
 			return null;
 		}
 		
-		ByteArrayOutputStream baos = new ByteArrayOutputStream();
+		byte[] data;
+		
+		if( expectedLength>0 ) {
+			data = readInputStreamBurstMode( is, expectedLength );
+		} else {
+			data = readInputStreamSlowMode( is );
+		}
+		return data;
+	}
+	
+	private byte[] readInputStreamBurstMode( InputStream is, int length ) {
+		
+		try {
+			byte[] data = new byte[length];
+			int readLength = is.read( data, 0, length );
+			if( readLength < length ) {
+				throw new BeanstalkException(String.format("The end of InputStream is reached - %d bytes expected, %d bytes read", length, readLength) );
+			}
+			byte br = (byte)is.read();
+			byte bn = (byte)is.read();
+			if( br != '\r' || bn != '\n' ) 
+				throw new BeanstalkException( "The end of InputStream is reached - End of line expected, but not found" );
+			return data;
+			
+		} catch( IOException ex ) {
+			throw new BeanstalkException(ex.getMessage());
+		}
+	}
+	
+	private byte[] readInputStreamSlowMode( InputStream is ) {
 		boolean lastByteWasReturnByte = false;
+		ByteArrayOutputStream baos = new ByteArrayOutputStream();
 		try {
 			while (true) {
-				byte b = (byte) is.read();
+				int intB = is.read();
+				byte b = (byte) intB;
 				
 				/**
 				 * prevent OutOfMemory exceptions, per leopoldkot			
 				 */
-				if  (b == -1) { 
+				if  (intB == -1) { 
 					throw new BeanstalkException("The end of InputStream is reached");
 				}
 			
-				baos.write(b);
 				if (b == '\n' && lastByteWasReturnByte) {
 					break;
 				}
-				lastByteWasReturnByte = (b == '\r');
+				if( b == '\r' ) {
+					lastByteWasReturnByte = true;
+				} else
+					baos.write(b);
 			}
+			return baos.toByteArray();
 		} catch(Exception e) {
 			throw new BeanstalkException(e.getMessage());
 		}
-		
-		byte[] data = new byte[baos.toByteArray().length - 2];
-		System.arraycopy(baos.toByteArray(), 0, data, 0, data.length);
-		return data;
 	}
-	
 	
 	private void validateRequest(Request request) {
 		if (request == null) {
