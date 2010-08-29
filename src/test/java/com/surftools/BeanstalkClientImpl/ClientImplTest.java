@@ -110,6 +110,17 @@ public class ClientImplTest extends TestCase {
 		} catch ( Exception e ) {
 			fail(e.getMessage());
 		}
+		
+		// per pashields http://github.com/pashields/JavaBeanstalkClient.git
+		// Names cannot start with hyphen
+		try {
+			client.useTube("-foobar");
+			fail("no BAD_FORMAT thrown");
+		} catch (BeanstalkException be) {
+			assertEquals("BAD_FORMAT", be.getMessage());
+		} catch (Exception e) {
+			fail(e.getMessage());
+		}
 	}
 
 	
