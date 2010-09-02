@@ -21,7 +21,6 @@ along with JavaBeanstalkCLient.  If not, see <http://www.gnu.org/licenses/>.
 
 */
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
@@ -387,9 +386,4 @@ public class ClientImpl implements Client {
 	public String getClientVersion() {
 		return VERSION;
 	}
-	
-	public void close() throws IOException {
-		protocolHandler.get().close();
-	}
-
 }
