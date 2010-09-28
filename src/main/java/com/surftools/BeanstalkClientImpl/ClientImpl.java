@@ -106,7 +106,8 @@ public class ClientImpl implements Client {
 				new String[] {"RESERVED"},
 				new String[] {"DEADLINE_SOON", "TIMED_OUT", },
 				null,
-				ExpectedResponse.ByteArray);
+				ExpectedResponse.ByteArray,
+				2);
 	        Response response = protocolHandler.get().processRequest(request);
 	        if (response != null && response.getStatus().equals("DEADLINE_SOON")) {
 	        	BeanstalkException be = new BeanstalkException(response.getStatus());
@@ -201,7 +202,8 @@ public class ClientImpl implements Client {
 			"FOUND",
 			"NOT_FOUND",
 			null,
-			ExpectedResponse.ByteArray);
+			ExpectedResponse.ByteArray,
+			2);
 		Response response = protocolHandler.get().processRequest(request);
 		if (response != null && response.isMatchOk()) {
 			jobId = Long.parseLong(response.getReponse());
@@ -218,7 +220,8 @@ public class ClientImpl implements Client {
 			"FOUND",
 			"NOT_FOUND",
 			null,
-			ExpectedResponse.ByteArray);
+			ExpectedResponse.ByteArray,
+			2);
 		Response response = protocolHandler.get().processRequest(request);
 		if (response != null && response.isMatchOk()) {
 			long jobId = Long.parseLong(response.getReponse());
@@ -235,7 +238,8 @@ public class ClientImpl implements Client {
 			"FOUND",
 			"NOT_FOUND",
 			null,
-			ExpectedResponse.ByteArray);
+			ExpectedResponse.ByteArray,
+			2);
 		Response response = protocolHandler.get().processRequest(request);
 		if (response != null && response.isMatchOk()) {
 			long jobId = Long.parseLong(response.getReponse());
@@ -252,7 +256,8 @@ public class ClientImpl implements Client {
 			"FOUND",
 			"NOT_FOUND",
 			null,
-			ExpectedResponse.ByteArray);
+			ExpectedResponse.ByteArray,
+			2);
 		Response response = protocolHandler.get().processRequest(request);
 		if (response != null && response.isMatchOk()) {
 			long jobId = Long.parseLong(response.getReponse());
@@ -382,5 +387,4 @@ public class ClientImpl implements Client {
 	public String getClientVersion() {
 		return VERSION;
 	}
-
 }
