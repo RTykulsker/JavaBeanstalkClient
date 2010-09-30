@@ -24,9 +24,12 @@ along with JavaBeanstalkCLient.  If not, see <http://www.gnu.org/licenses/>.
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import com.surftools.BeanstalkClient.BeanstalkException;
@@ -763,6 +766,85 @@ public class ClientImplTest extends TestCase {
 		assertNull(job);
 
 		popWatchedTubes(client, tubeNames);
+	}
+	
+	public void testClose() {
+		Client client = new ClientImpl(TEST_HOST, TEST_PORT);
+		String s = client.listTubeUsed();
+		assertNotNull(s);
+
+		client.close();
+		try {
+			client.listTubeUsed();
+			fail("didn't throw expected exception");
+		} catch (BeanstalkException be) {
+			String message = be.getMessage();
+			assertEquals("Socket is closed", message);
+		} catch (Exception e) {
+			fail("caught exception: " + e.getMessage());
+		}
+
+		// close again
+		client.close();
+		try {
+			client.listTubeUsed();
+			fail("didn't throw expected exception");
+		} catch (BeanstalkException be) {
+			String message = be.getMessage();
+			assertEquals("Socket is closed", message);
+		} catch (Exception e) {
+			fail("caught exception: " + e.getMessage());
+		}
+	}
+
+	@SuppressWarnings("unchecked")
+	public void testUseBlockIO() {
+
+		String remoteHost = TEST_HOST;
+		int nIterations = 100;
+		for (int i = 0; i < nIterations; ++i) {
+			Set<Boolean> blockModes = new HashSet<Boolean>(Arrays
+					.asList(new Boolean[] { false, true }));
+			for (boolean useBlockIO : blockModes) {
+				Client client = new ClientImpl(remoteHost, TEST_PORT,
+						useBlockIO);
+
+				Object[] tubeNames = pushWatchedTubes(client);
+
+				// create an arbitrary data structure
+				String srcString = "testReserve";
+				List<String> srcList = new ArrayList<String>();
+				srcList.add(null);
+				srcList.add(srcString);
+				Map<String, List<String>> srcMap = new HashMap<String, List<String>>();
+				srcMap.put("key", srcList);
+				byte[] srcBytes = Serializer
+						.serializableToByteArray((Serializable) srcMap);
+
+				// producer
+				client.useTube((String) tubeNames[1]);
+				long jobId = client.put(65536, 0, 120, srcBytes);
+				assertTrue(jobId > 0);
+
+				// consumer
+				Job job = client.reserve(null);
+				assertNotNull(job);
+				long newJobId = job.getJobId();
+				assertEquals(jobId, newJobId);
+
+				// unpack bytes
+				byte[] dstBytes = job.getData();
+				Map<String, List<String>> dstMap = (Map<String, List<String>>) Serializer
+						.byteArrayToSerializable(dstBytes);
+				List<String> dstList = dstMap.get("key");
+				String dstString = dstList.get(1);
+				assertEquals(srcString, dstString);
+
+				client.delete(job.getJobId());
+
+				popWatchedTubes(client, tubeNames);
+			}
+		}
 	}
 	
 }

@@ -31,7 +31,7 @@ import com.surftools.BeanstalkClient.Job;
 
 public class ClientImpl implements Client {
 	
-	private static final String VERSION = "1.1.2";
+	private static final String VERSION = "1.2.1";
 	private static final long MAX_PRIORITY = 4294967296L;
 	
 	private String host;
@@ -51,6 +51,17 @@ public class ClientImpl implements Client {
 	public ClientImpl(String host, int port) {
 		this.host = host;
 		this.port = port;
+	}
+	
+	public ClientImpl(boolean useBlockIO) {
+		this(DEFAULT_HOST, DEFAULT_PORT);
+		protocolHandler.get().setUseBlockIO(useBlockIO);
+	}
+	
+	public ClientImpl(String host, int port, boolean useBlockIO) {
+		this.host = host;
+		this.port = port;
+		protocolHandler.get().setUseBlockIO(useBlockIO);
 	}
 	
 	// ****************************************************************
@@ -386,5 +397,9 @@ public class ClientImpl implements Client {
 
 	public String getClientVersion() {
 		return VERSION;
+	}
+
+	public void close() {
+		protocolHandler.get().close();
 	}
 }

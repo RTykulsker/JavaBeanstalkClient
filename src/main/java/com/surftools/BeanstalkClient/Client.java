@@ -98,4 +98,9 @@ public interface Client {
 	 */
 	public String getClientVersion();
 	
+	/**
+	 * close underlying connection to beanstalkd
+	 */
+	public void close();
+	
 }

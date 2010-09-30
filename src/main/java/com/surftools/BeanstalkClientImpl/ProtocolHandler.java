@@ -40,6 +40,7 @@ import com.surftools.BeanstalkClient.BeanstalkException;
 public class ProtocolHandler {
 	
 	private Socket socket;
+	private boolean useBlockIO;
 	
 	ProtocolHandler(String host, int port) {		
 		try {
@@ -48,9 +49,7 @@ public class ProtocolHandler {
 			throw new BeanstalkException(e.getMessage());
 		}
 	}
-	
-
-	
+		
 	Response processRequest(Request request) {
 		validateRequest(request);
 		
@@ -132,7 +131,7 @@ public class ProtocolHandler {
 		
 		byte[] data;
 		
-		if( expectedLength>0 ) {
+		if( expectedLength > 0 && useBlockIO ) {
 			data = readInputStreamBurstMode( is, expectedLength );
 		} else {
 			data = readInputStreamSlowMode( is );
@@ -269,5 +268,24 @@ public class ProtocolHandler {
 		}
 		return list;
 	}
+	
+	public void close() {
+		if (socket != null && !socket.isClosed()) {
+			try {
+				socket.close();
+			} catch (Exception e) {
+				throw new BeanstalkException(e.getMessage());
+			}
+		}
+	}
+
+	public void setUseBlockIO(boolean useBlockIO) {
+		this.useBlockIO = useBlockIO;
+	}
+
+	public boolean isUseBlockIO() {
+		return useBlockIO;
+	}
+
 
 }
