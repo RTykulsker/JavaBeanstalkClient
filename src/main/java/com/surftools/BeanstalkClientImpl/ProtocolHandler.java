@@ -143,8 +143,8 @@ public class ProtocolHandler {
 		
 		try {
 			byte[] data = new byte[length];
-                        int off = 0;
-                        int toRead = length-off;
+			int off = 0;
+			int toRead = length-off;
 			while (toRead > 0) {
 				int readLength = is.read( data, off, toRead);
 				if (readLength == -1)
