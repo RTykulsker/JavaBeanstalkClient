@@ -143,10 +143,16 @@ public class ProtocolHandler {
 		
 		try {
 			byte[] data = new byte[length];
-			int readLength = is.read( data, 0, length );
-			if( readLength < length ) {
-				throw new BeanstalkException(String.format("The end of InputStream is reached - %d bytes expected, %d bytes read", length, readLength) );
-			}
+                        int off = 0;
+                        int toRead = length-off;
+                        while (toRead > 0) {
+                            int readLength = is.read( data, off, toRead);
+                            if (readLength == -1)
+                                throw new BeanstalkException(String.format("The end of InputStream is reached - %d bytes expected, %d bytes read", length, off+readLength) );
+ 
+                             off += readLength;
+                             toRead = length-off;
+                        }
 			byte br = (byte)is.read();
 			byte bn = (byte)is.read();
 			if( br != '\r' || bn != '\n' ) 
