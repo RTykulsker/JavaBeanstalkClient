@@ -54,23 +54,20 @@ public class ProtocolHandler {
 		validateRequest(request);
 		
 		Response response = null;
-		OutputStream os = null;
 		InputStream is = null;
 		PrintWriter out = null;
 
 		try {			
-			os = socket.getOutputStream();
-			out = new PrintWriter(os);
-
-			out.print(request.getCommand() + "\r\n");
-				if (request.getData() != null) {
-				out.flush();
-				os.write(request.getData());
-				out.print("\r\n");
+			String command = request.getCommand() + "\r\n";
+			if (request.getData() != null) {
+				command += new String(request.getData());
+				command += "\r\n";
 			}
+
+			out = new PrintWriter(socket.getOutputStream());
+			out.write(command);
 			out.flush();
-			os.flush();
-							
+
 			is = socket.getInputStream();
 			String line = new String(readInputStream(is, 0 ));
 	
