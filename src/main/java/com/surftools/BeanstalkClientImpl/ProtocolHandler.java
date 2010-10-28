@@ -28,7 +28,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -39,6 +38,7 @@ import com.surftools.BeanstalkClient.BeanstalkException;
 
 public class ProtocolHandler {
 	
+	private static final byte[] CRNLBA = new byte[] { '\r', '\n' };
 	private Socket socket;
 	private boolean useBlockIO;
 	
@@ -56,19 +56,15 @@ public class ProtocolHandler {
 		Response response = null;
 		OutputStream os = null;
 		InputStream is = null;
-		PrintWriter out = null;
 
 		try {			
 			os = socket.getOutputStream();
-			out = new PrintWriter(os);
-
-			out.print(request.getCommand() + "\r\n");
-				if (request.getData() != null) {
-				out.flush();
+			os.write(request.getCommand().getBytes());
+			os.write(CRNLBA);
+			if (request.getData() != null) {
 				os.write(request.getData());
-				out.print("\r\n");
+				os.write(CRNLBA);
 			}
-			out.flush();
 			os.flush();
 							
 			is = socket.getInputStream();
