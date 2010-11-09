@@ -27,7 +27,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
+import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -38,7 +38,6 @@ import com.surftools.BeanstalkClient.BeanstalkException;
 
 public class ProtocolHandler {
 	
-	private static final byte[] CRNLBA = new byte[] { '\r', '\n' };
 	private Socket socket;
 	private boolean useBlockIO;
 	
@@ -54,26 +53,29 @@ public class ProtocolHandler {
 		validateRequest(request);
 		
 		Response response = null;
-		OutputStream os = null;
 		InputStream is = null;
+		PrintWriter out = null;
 
-		try {			
-			os = socket.getOutputStream();
-			os.write(request.getCommand().getBytes());
-			os.write(CRNLBA);
+		try {
+			String command = request.getCommand() + "\r\n";
 			if (request.getData() != null) {
-				os.write(request.getData());
-				os.write(CRNLBA);
+				command += new String(request.getData());
+				command += "\r\n";
 			}
-			os.flush();
-							
+
+			out = new PrintWriter(socket.getOutputStream());
+			out.write(command);
+			out.flush();
+
 			is = socket.getInputStream();
-			String line = new String(readInputStream(is, 0 ));
-	
+			String line = new String(readInputStream(is, 0));
+
 			String[] tokens = line.split(" ");
 			if (tokens == null || tokens.length == 0) {
 				throw new BeanstalkException("no response");
 			}
+
+
 			
 			response = new Response();
 			response.setResponseLine(line);
