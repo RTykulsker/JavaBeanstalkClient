@@ -27,7 +27,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.PrintWriter;
+import java.io.OutputStream;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -37,9 +37,10 @@ import java.util.Map;
 import com.surftools.BeanstalkClient.BeanstalkException;
 
 public class ProtocolHandler {
+	private static final byte[] CRLF = {'\r','\n'};
 	
 	private Socket socket;
-	private boolean useBlockIO;
+	private boolean useBlockIO = false;
 	
 	ProtocolHandler(String host, int port) {		
 		try {
@@ -54,19 +55,33 @@ public class ProtocolHandler {
 		
 		Response response = null;
 		InputStream is = null;
-		PrintWriter out = null;
+		OutputStream os = null;
 
 		try {
-			String command = request.getCommand() + "\r\n";
-			if (request.getData() != null) {
-				command += new String(request.getData());
-				command += "\r\n";
+			// formulate the request ...
+			byte[] requestByteArray = null;
+			byte[] commandBytes = request.getCommand().getBytes();
+			int commandLength = commandBytes.length;
+			if (request.getData() == null) {
+				requestByteArray = new byte[commandLength + 2];
+				
+				System.arraycopy(commandBytes, 0, requestByteArray, 0, commandLength);
+				System.arraycopy(CRLF, 0, requestByteArray, commandLength, 2);
+			} else {
+				byte[] dataBytes = request.getData();
+				int dataLength = (dataBytes == null) ? 0 : (dataBytes.length + 2);
+				requestByteArray = new byte[commandLength + 2 + dataLength];
+				
+				System.arraycopy(commandBytes, 0, requestByteArray, 0, commandLength);
+				System.arraycopy(CRLF, 0, requestByteArray, commandLength, 2);
+				System.arraycopy(dataBytes, 0, requestByteArray, commandLength + 2, dataLength - 2);
+				System.arraycopy(CRLF, 0, requestByteArray, requestByteArray.length - 2, 2);
 			}
-
-			out = new PrintWriter(socket.getOutputStream());
-			out.write(command);
-			out.flush();
-
+			
+			os = socket.getOutputStream();
+			os.write(requestByteArray);
+			os.flush();
+			
 			is = socket.getInputStream();
 			String line = new String(readInputStream(is, 0));
 
@@ -74,8 +89,6 @@ public class ProtocolHandler {
 			if (tokens == null || tokens.length == 0) {
 				throw new BeanstalkException("no response");
 			}
-
-
 			
 			response = new Response();
 			response.setResponseLine(line);
@@ -184,8 +197,13 @@ public class ProtocolHandler {
 				}
 				if( b == '\r' ) {
 					lastByteWasReturnByte = true;
-				} else
+				} else {
+					if (lastByteWasReturnByte) {
+						lastByteWasReturnByte = false;
+						baos.write('\r');
+					}
 					baos.write(b);
+				}
 			}
 			return baos.toByteArray();
 		} catch(Exception e) {

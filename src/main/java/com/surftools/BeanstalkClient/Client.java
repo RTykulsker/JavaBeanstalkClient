@@ -103,4 +103,11 @@ public interface Client {
 	 */
 	public void close();
 	
+	/**
+	 * one unique connection per thread or a single shared connection?
+	 * @return
+	 */
+	public boolean isUniqueConnectionPerThread();
+	public void setUniqueConnectionPerThread(boolean uniqueConnectionPerThread);
+	
 }
