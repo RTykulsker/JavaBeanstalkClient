@@ -59,28 +59,18 @@ public class ProtocolHandler {
 
 		try {
 			// formulate the request ...
-			byte[] requestByteArray = null;
-			byte[] commandBytes = request.getCommand().getBytes();
-			int commandLength = commandBytes.length;
-			if (request.getData() == null) {
-				requestByteArray = new byte[commandLength + 2];
-				
-				System.arraycopy(commandBytes, 0, requestByteArray, 0, commandLength);
-				System.arraycopy(CRLF, 0, requestByteArray, commandLength, 2);
-			} else {
-				byte[] dataBytes = request.getData();
-				int dataLength = (dataBytes == null) ? 0 : (dataBytes.length + 2);
-				requestByteArray = new byte[commandLength + 2 + dataLength];
-				
-				System.arraycopy(commandBytes, 0, requestByteArray, 0, commandLength);
-				System.arraycopy(CRLF, 0, requestByteArray, commandLength, 2);
-				System.arraycopy(dataBytes, 0, requestByteArray, commandLength + 2, dataLength - 2);
-				System.arraycopy(CRLF, 0, requestByteArray, requestByteArray.length - 2, 2);
+			ByteArrayOutputStream baos = new ByteArrayOutputStream ();
+			baos.write(request.getCommand().getBytes());
+			baos.write(CRLF);
+			if (request.getData() != null) {
+				baos.write(request.getData());
+				baos.write(CRLF);
 			}
-			
+			baos.flush();
 			os = socket.getOutputStream();
-			os.write(requestByteArray);
+			os.write(baos.toByteArray());
 			os.flush();
+			baos.close();
 			
 			is = socket.getInputStream();
 			String line = new String(readInputStream(is, 0));

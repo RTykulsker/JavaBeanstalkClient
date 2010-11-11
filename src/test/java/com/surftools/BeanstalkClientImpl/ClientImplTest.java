@@ -818,7 +818,6 @@ public class ClientImplTest extends TestCase {
 		}
 	}
 
-	@SuppressWarnings("unchecked")
 	public void testUseBlockIO() {
 
 		String remoteHost = TEST_HOST;
