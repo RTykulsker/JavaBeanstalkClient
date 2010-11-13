@@ -31,7 +31,7 @@ import com.surftools.BeanstalkClient.Job;
 
 public class ClientImpl implements Client {
 	
-	private static final String VERSION = "1.4.2";
+	private static final String VERSION = "1.4.3";
 	private static final long MAX_PRIORITY = 4294967296L;
 	
 	private String host;
@@ -108,6 +108,9 @@ public class ClientImpl implements Client {
 	}
 	
 	public void useTube(String tubeName) {
+		if (tubeName == null) {
+			throw new BeanstalkException("null tubeName");			
+		}
 		Request request = new Request(
 			"use " + tubeName, 
 			"USING", 
@@ -195,6 +198,9 @@ public class ClientImpl implements Client {
 	//	tube-related
 	// ****************************************************************
 	public int watch(String tubeName) {
+		if (tubeName == null) {
+			throw new BeanstalkException("null tubeName");			
+		}
 		Request request = new Request(
 				"watch " + tubeName, 
 				"WATCHING", 
@@ -206,6 +212,9 @@ public class ClientImpl implements Client {
 	}
 
 	public int ignore(String tubeName) {
+		if (tubeName == null) {
+			throw new BeanstalkException("null tubeName");			
+		}
 		Request request = new Request(
 				"ignore " + tubeName, 
 				new String[] {"WATCHING", "NOT_IGNORED"}, 

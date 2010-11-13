@@ -853,5 +853,57 @@ public class ClientImplTest extends TestCase {
 			}
 		}
 	}
+	
+	public void testNullArgs() {
+		Client client = new ClientImpl(TEST_HOST, TEST_PORT);
+
+		try {
+			client.ignore(null);
+			fail ("didn't throw");
+		} catch (BeanstalkException be ) {
+			assertEquals("null tubeName", be.getMessage());
+		} catch (Exception e) {
+			fail("caught unexpected exception: " + e.getClass().getCanonicalName() + ", " + e.getMessage() );
+		}
 		
+		try {
+			client.useTube(null);
+			fail ("didn't throw");
+		} catch (BeanstalkException be ) {
+			assertEquals("null tubeName", be.getMessage());
+		} catch (Exception e) {
+			fail("caught unexpected exception: " + e.getClass().getCanonicalName() + ", " + e.getMessage() );
+		}
+		
+		try {
+			client.watch(null);
+			fail ("didn't throw");
+		} catch (BeanstalkException be ) {
+			assertEquals("null tubeName", be.getMessage());
+		} catch (Exception e) {
+			fail("caught unexpected exception: " + e.getClass().getCanonicalName() + ", " + e.getMessage() );
+		}
+	}
+	
+	public void testPutPerformance() {
+		Client client = new ClientImpl(TEST_HOST, TEST_PORT);
+		
+		Object[] tubeNames = pushWatchedTubes(client);
+		client.useTube((String) tubeNames[1]);
+		
+		byte[] bytes = "testPutPerformance".getBytes();
+		int nIterations = 10;
+		long sumMillis = 0;
+		
+		for (int i = 0; i < nIterations; ++i) {
+			long startMillis = System.currentTimeMillis();
+			client.put(0, 0, 120, bytes);
+            long deltaMillis = System.currentTimeMillis() - startMillis;
+            sumMillis += deltaMillis;
+            System.out.println("Enqueue time: " + deltaMillis + "ms");
+		}
+		
+        long averageMillis = sumMillis / nIterations;
+        System.out.println("Average enqueue time: " + averageMillis + "ms");
+	}
 }
