@@ -31,7 +31,7 @@ import com.surftools.BeanstalkClient.Job;
 
 public class ClientImpl implements Client {
 	
-	private static final String VERSION = "1.4.3";
+	private static final String VERSION = "1.4.4";
 	private static final long MAX_PRIORITY = 4294967296L;
 	
 	private String host;
@@ -222,7 +222,7 @@ public class ClientImpl implements Client {
 				null,
 				ExpectedResponse.None);
 	        Response response = getProtocolHandler().processRequest(request);
-			return Integer.parseInt(response.getReponse());
+			return (response.getReponse() == null) ? -1 : Integer.parseInt(response.getReponse());
 	}
 	
 	// ****************************************************************
@@ -434,4 +434,11 @@ public class ClientImpl implements Client {
 		this.uniqueConnectionPerThread = uniqueConnectionPerThread;
 	}
 
+	public String getServerVersion() {
+		Map<String, String> stats = stats();
+		if (stats == null) {
+			throw new BeanstalkException("could not get stats");
+		}
+		return stats.get("version").trim();
+	}
 }

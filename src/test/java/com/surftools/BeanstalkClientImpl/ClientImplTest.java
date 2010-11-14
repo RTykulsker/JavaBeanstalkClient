@@ -33,8 +33,6 @@ import junit.framework.Test;
 import junit.framework.TestCase;
 import junit.framework.TestSuite;
 
-import org.junit.Ignore;
-
 import com.surftools.BeanstalkClient.BeanstalkException;
 import com.surftools.BeanstalkClient.Client;
 import com.surftools.BeanstalkClient.Job;
@@ -88,8 +86,47 @@ public class ClientImplTest extends TestCase {
 
 		client.ignore((String) tubeNames[1]);
 	}
+	
+	private boolean serverSupportsUnderscoreInTubeName(Client client) {
+		assertNotNull(client);
+		
+		String serverVersion = client.getServerVersion();
+		assertNotNull(serverVersion);
+		String[] tokens = serverVersion.split("\\.");
+		assertEquals(3, tokens.length);
+		
+		int majorVersion = Integer.parseInt(tokens[0]);
+		int minorVersion = Integer.parseInt(tokens[1]);
+		int dotVersion = Integer.parseInt(tokens[2]);
+		
+		if (majorVersion >= 1 && minorVersion >= 4 && dotVersion >= 4) {
+			return true;
+		}
+		
+		return false;
+	}
 
-	@Ignore
+	// ****************************************************************
+	// Producer methods
+	// ****************************************************************
+
+	public void testGetServerVersion() {
+		Client client = new ClientImpl(TEST_HOST, TEST_PORT);
+		
+		String serverVersion = client.getServerVersion();
+		assertNotNull(serverVersion);
+		String[] tokens = serverVersion.split("\\.");
+		assertEquals(3, tokens.length);
+		
+		int majorVersion = Integer.parseInt(tokens[0]);
+		int minorVersion = Integer.parseInt(tokens[1]);
+		int dotVersion = Integer.parseInt(tokens[2]);
+		assertTrue(majorVersion >= 1);
+		assertTrue(minorVersion >= 4);
+		assertTrue(dotVersion >= 4);		
+	}
+
+	
 	public void testBinaryData() {
 
 		for (boolean useBlockIO : new boolean[] { false, true }) {
@@ -126,9 +163,7 @@ public class ClientImplTest extends TestCase {
 		}
 	}
 
-	// ****************************************************************
-	// Producer methods
-	// ****************************************************************
+	
 	public void testUseTube() {
 		Client client = new ClientImpl(TEST_HOST, TEST_PORT);
 		client.useTube("foobar");
@@ -143,11 +178,13 @@ public class ClientImplTest extends TestCase {
 			fail(e.getMessage());
 		}
 
-		// underscores are now valid in tube names
-		try {
-			client.useTube("foobar_");
-		} catch ( Exception e ) {
-			fail(e.getMessage());
+		// underscores are valid in tube names >= beanstalk 1.4.4.
+		if (serverSupportsUnderscoreInTubeName(client)) {
+			try {
+				client.useTube("foobar_");
+			} catch (Exception e) {
+				fail(e.getMessage());
+			}
 		}
 		
 		// per pashields http://github.com/pashields/JavaBeanstalkClient.git
@@ -900,10 +937,23 @@ public class ClientImplTest extends TestCase {
 			client.put(0, 0, 120, bytes);
             long deltaMillis = System.currentTimeMillis() - startMillis;
             sumMillis += deltaMillis;
-            System.out.println("Enqueue time: " + deltaMillis + "ms");
 		}
 		
         long averageMillis = sumMillis / nIterations;
-        System.out.println("Average enqueue time: " + averageMillis + "ms");
+        assertTrue(averageMillis <= 2);
 	}
+	
+	
+	public void testIgnoreDefaultTube() {
+		Client client = new ClientImpl(TEST_HOST, TEST_PORT);
+		
+		final String DEFAULT_TUBE = "default";
+		List<String> tubeNames = client.listTubesWatched();
+		assertEquals(1, tubeNames.size());
+		assertEquals(DEFAULT_TUBE,tubeNames.get(0));
+		
+		int watchCount = client.ignore(DEFAULT_TUBE);
+		assertEquals(-1, watchCount);
+	}	
+
 }

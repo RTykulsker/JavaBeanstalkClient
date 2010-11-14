@@ -58,6 +58,11 @@ public interface Client {
 	// ****************************************************************
 	public int watch(String tubeName);
 	
+	/**
+	 * 
+	 * @param tubeName
+	 * @return -1, for NOT_IGNORED response in an attempt for a single tube
+	 */
 	public int ignore(String tubeName);
 	
 	// ****************************************************************
@@ -99,6 +104,12 @@ public interface Client {
 	public String getClientVersion();
 	
 	/**
+	 * return the version of the beanstalkd daemon
+	 * @return
+	 */
+	public String getServerVersion();
+	
+	/**
 	 * close underlying connection to beanstalkd
 	 */
 	public void close();
@@ -109,5 +120,5 @@ public interface Client {
 	 */
 	public boolean isUniqueConnectionPerThread();
 	public void setUniqueConnectionPerThread(boolean uniqueConnectionPerThread);
-	
+
 }
