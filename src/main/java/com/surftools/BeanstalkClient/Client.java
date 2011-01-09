@@ -2,14 +2,15 @@ package com.surftools.BeanstalkClient;
 
 /*
 
-Copyright 2009 Robert Tykulsker 
+Copyright 2009-2010 Robert Tykulsker 
 
 This file is part of JavaBeanstalkCLient.
 
 JavaBeanstalkCLient is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+(at your option) any later version, or alternatively, the BSD license supplied
+with this project in the file "BSD-LICENSE".
 
 JavaBeanstalkCLient is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -57,6 +58,11 @@ public interface Client {
 	// ****************************************************************
 	public int watch(String tubeName);
 	
+	/**
+	 * 
+	 * @param tubeName
+	 * @return -1, for NOT_IGNORED response in an attempt for a single tube
+	 */
 	public int ignore(String tubeName);
 	
 	// ****************************************************************
@@ -97,4 +103,22 @@ public interface Client {
 	 */
 	public String getClientVersion();
 	
+	/**
+	 * return the version of the beanstalkd daemon
+	 * @return
+	 */
+	public String getServerVersion();
+	
+	/**
+	 * close underlying connection to beanstalkd
+	 */
+	public void close();
+	
+	/**
+	 * one unique connection per thread or a single shared connection?
+	 * @return
+	 */
+	public boolean isUniqueConnectionPerThread();
+	public void setUniqueConnectionPerThread(boolean uniqueConnectionPerThread);
+
 }

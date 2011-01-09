@@ -2,14 +2,15 @@ package com.surftools.BeanstalkClientImpl;
 
 /*
 
-Copyright 2009 Robert Tykulsker 
+Copyright 2009-2010 Robert Tykulsker 
 
 This file is part of JavaBeanstalkCLient.
 
 JavaBeanstalkCLient is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+(at your option) any later version, or alternatively, the BSD license supplied
+with this project in the file "BSD-LICENSE".
 
 JavaBeanstalkCLient is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -27,6 +28,7 @@ public class Request {
 	private String[] errorStates;
 	private byte[] data;
 	private ExpectedResponse expectedResponse;
+	private int expectedDataLengthIndex;
 
 	
 	public Request() {		
@@ -37,7 +39,13 @@ public class Request {
 		this.validStates = validStates;
 		this.errorStates = errorStates;
 		this.data = data;
-		this.expectedResponse = expectedResponse;		
+		this.expectedResponse = expectedResponse;	
+		this.expectedDataLengthIndex = -1;
+	}
+	
+	public Request(String command, String[] validStates, String[] errorStates, byte[] data, ExpectedResponse expectedResponse, int expectedDataLengthIndex ) {
+		this( command, validStates, errorStates, data, expectedResponse );
+		this.expectedDataLengthIndex = expectedDataLengthIndex;
 	}
 	
 	public Request(String command, String validState, String errorState, byte[] data, ExpectedResponse expectedResponse) {
@@ -53,6 +61,12 @@ public class Request {
 		
 		this.data = data;
 		this.expectedResponse = expectedResponse;	
+		this.expectedDataLengthIndex = -1;
+	}
+	
+	public Request(String command, String validState, String errorState, byte[] data, ExpectedResponse expectedResponse, int expectedDataLengthIndex) {
+		this( command, validState, errorState, data, expectedResponse );
+		this.expectedDataLengthIndex = expectedDataLengthIndex;
 	}
 	
 	public String getCommand() {
@@ -93,5 +107,12 @@ public class Request {
 	
 	public void setExpectedResponse(ExpectedResponse expectedResponse) {
 		this.expectedResponse = expectedResponse;
+	}
+	
+	public void setExpectedDataLengthIndex( int index ) {
+		this.expectedDataLengthIndex = index;
+	}
+	public int getExpectedDataLengthIndex() {
+		return this.expectedDataLengthIndex;
 	}
 }
