@@ -31,7 +31,7 @@ import com.surftools.BeanstalkClient.Job;
 
 public class ClientImpl implements Client {
 	
-	private static final String VERSION = "1.4.4";
+	private static final String VERSION = "1.4.5";
 	private static final long MAX_PRIORITY = 4294967296L;
 	
 	private String host;
