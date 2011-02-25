@@ -4,7 +4,7 @@
 	<groupId>com.surftools</groupId>
 	<artifactId>BeanstalkClient</artifactId>
 	<packaging>jar</packaging>
-	<version>1.4.5-SNAPSHOT</version>
+	<version>1.4.6-SNAPSHOT</version>
 	<name>BeanstalkClient</name>
 	<url>http://maven.apache.org</url>
 	<dependencies>

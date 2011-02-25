@@ -557,7 +557,7 @@ public class ClientImplTest extends TestCase {
 		boolean dump = false;
 		if (dump) {
 			for (String key : map.keySet()) {
-				System.out.println("key = " + key + ", ==> " + map.get(key));
+				System.out.println("key: '" + key + "', value: '" + map.get(key) + "'");
 			}
 		}
 	}

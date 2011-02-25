@@ -250,7 +250,7 @@ public class ProtocolHandler {
 				if (line.length() == 0) {
 					break;
 				}
-				String[] values = line.split(":");
+				String[] values = line.split(": ");
 				if (values.length != 2) {
 					continue;
 				}
