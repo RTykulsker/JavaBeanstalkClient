@@ -2,25 +2,25 @@ package com.surftools.BeanstalkClientImpl;
 
 /*
 
-Copyright 2009-2010 Robert Tykulsker 
+ Copyright 2009-2013 Robert Tykulsker 
 
-This file is part of JavaBeanstalkCLient.
+ This file is part of JavaBeanstalkCLient.
 
-JavaBeanstalkCLient is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version, or alternatively, the BSD license supplied
-with this project in the file "BSD-LICENSE".
+ JavaBeanstalkCLient is free software: you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation, either version 3 of the License, or
+ (at your option) any later version, or alternatively, the BSD license supplied
+ with this project in the file "BSD-LICENSE".
 
-JavaBeanstalkCLient is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+ JavaBeanstalkCLient is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with JavaBeanstalkCLient.  If not, see <http://www.gnu.org/licenses/>.
+ You should have received a copy of the GNU General Public License
+ along with JavaBeanstalkCLient.  If not, see <http://www.gnu.org/licenses/>.
 
-*/
+ */
 
 import java.util.Arrays;
 import java.util.HashSet;
@@ -41,18 +41,16 @@ public class ClientImplTest extends TestCase {
 
 	private String TEST_HOST = "localhost";
 	private int TEST_PORT = 11300;
+	private static final String VERSION_DELIMITERS = "[.\\+]+";
 
-	
 	public ClientImplTest(String testName) {
 		super(testName);
 	}
 
-	
 	public static Test suite() {
 		return new TestSuite(ClientImplTest.class);
 	}
 
-	
 	// ****************************************************************
 	// Support methods
 	// ****************************************************************
@@ -64,7 +62,7 @@ public class ClientImplTest extends TestCase {
 	Object[] pushWatchedTubes(Client client) {
 		Object[] tubeNames = new Object[2];
 		List<String> list = client.listTubesWatched();
-		
+
 		String newTubeName = "tube-" + UUID.randomUUID().toString();
 		client.watch(newTubeName);
 
@@ -86,23 +84,27 @@ public class ClientImplTest extends TestCase {
 
 		client.ignore((String) tubeNames[1]);
 	}
-	
+
 	private boolean serverSupportsUnderscoreInTubeName(Client client) {
 		assertNotNull(client);
-		
+
 		String serverVersion = client.getServerVersion();
 		assertNotNull(serverVersion);
-		String[] tokens = serverVersion.split("\\.");
-		assertEquals(3, tokens.length);
-		
+		String[] tokens = serverVersion.split(VERSION_DELIMITERS);
+		assertTrue(tokens.length >= 3);
+
 		int majorVersion = Integer.parseInt(tokens[0]);
 		int minorVersion = Integer.parseInt(tokens[1]);
 		int dotVersion = Integer.parseInt(tokens[2]);
-		
-		if (majorVersion >= 1 && minorVersion >= 4 && dotVersion >= 4) {
+
+		if (majorVersion == 1 && minorVersion == 4 && dotVersion >= 4) {
 			return true;
 		}
-		
+
+		if (majorVersion >= 1 && minorVersion >= 5) {
+			return true;
+		}
+
 		return false;
 	}
 
@@ -112,21 +114,20 @@ public class ClientImplTest extends TestCase {
 
 	public void testGetServerVersion() {
 		Client client = new ClientImpl(TEST_HOST, TEST_PORT);
-		
+
 		String serverVersion = client.getServerVersion();
 		assertNotNull(serverVersion);
-		String[] tokens = serverVersion.split("\\.");
-		assertEquals(3, tokens.length);
-		
+
+		String[] tokens = serverVersion.split(VERSION_DELIMITERS);
+		assertTrue(tokens.length >= 3);
+
 		int majorVersion = Integer.parseInt(tokens[0]);
 		int minorVersion = Integer.parseInt(tokens[1]);
 		int dotVersion = Integer.parseInt(tokens[2]);
-		assertTrue(majorVersion >= 1);
-		assertTrue(minorVersion >= 4);
-		assertTrue(dotVersion >= 4);		
+		assertTrue((majorVersion == 1 && minorVersion == 4 && dotVersion >= 4)
+				|| (majorVersion >= 1 && minorVersion >= 5));
 	}
 
-	
 	public void testBinaryData() {
 
 		for (boolean useBlockIO : new boolean[] { false, true }) {
@@ -163,11 +164,10 @@ public class ClientImplTest extends TestCase {
 		}
 	}
 
-	
 	public void testUseTube() {
 		Client client = new ClientImpl(TEST_HOST, TEST_PORT);
 		client.useTube("foobar");
-		
+
 		// hashes are not valid in tube names
 		try {
 			client.useTube("foobar#");
@@ -186,7 +186,7 @@ public class ClientImplTest extends TestCase {
 				fail(e.getMessage());
 			}
 		}
-		
+
 		// per pashields http://github.com/pashields/JavaBeanstalkClient.git
 		// Names cannot start with hyphen
 		try {
@@ -199,7 +199,6 @@ public class ClientImplTest extends TestCase {
 		}
 	}
 
-	
 	public void testPut() {
 
 		Client client = new ClientImpl(TEST_HOST, TEST_PORT);
@@ -209,8 +208,7 @@ public class ClientImplTest extends TestCase {
 
 		// invalid priority
 		try {
-			jobId = client
-					.put(-1, 0, 120, "testPutNegativePriority".getBytes());
+			jobId = client.put(-1, 0, 120, "testPutNegativePriority".getBytes());
 			client.delete(jobId);
 			fail("no BAD_FORMAT thrown");
 		} catch (BeanstalkException be) {
@@ -221,8 +219,7 @@ public class ClientImplTest extends TestCase {
 
 		// invalid priority
 		try {
-			jobId = client.put(Long.MAX_VALUE, 0, 120, "testPutHugePriority"
-					.getBytes());
+			jobId = client.put(Long.MAX_VALUE, 0, 120, "testPutHugePriority".getBytes());
 			client.delete(jobId);
 			fail("no UNKNOWN_COMMAND thrown");
 		} catch (BeanstalkException be) {
@@ -253,9 +250,9 @@ public class ClientImplTest extends TestCase {
 		Client client = new ClientImpl(TEST_HOST, TEST_PORT);
 
 		Object[] tubeNames = pushWatchedTubes(client);
-		
+
 		String srcString = "testReserve";
-		
+
 		// producer
 		client.useTube((String) tubeNames[1]);
 		long jobId = client.put(65536, 0, 120, srcString.getBytes());
@@ -275,7 +272,6 @@ public class ClientImplTest extends TestCase {
 		popWatchedTubes(client, tubeNames);
 	}
 
-	
 	public void testReserveWithTimeout() {
 
 		Client client = new ClientImpl(TEST_HOST, TEST_PORT);
@@ -289,8 +285,7 @@ public class ClientImplTest extends TestCase {
 		// producer
 		client.useTube((String) tubeNames[1]);
 		long putMillis = System.currentTimeMillis();
-		long jobId = client.put(65536, timeoutSeconds, 120, srcString
-				.getBytes());
+		long jobId = client.put(65536, timeoutSeconds, 120, srcString.getBytes());
 		assertTrue(jobId > 0);
 
 		// consumer
@@ -310,8 +305,7 @@ public class ClientImplTest extends TestCase {
 		client.delete(job.getJobId());
 
 		// now try to achieve a TIMED_OUT
-		jobId = client
-				.put(65536, 2 * timeoutSeconds, 120, srcString.getBytes());
+		jobId = client.put(65536, 2 * timeoutSeconds, 120, srcString.getBytes());
 		assertTrue(jobId > 0);
 
 		job = client.reserve(timeoutSeconds);
@@ -320,7 +314,6 @@ public class ClientImplTest extends TestCase {
 		popWatchedTubes(client, tubeNames);
 	}
 
-	
 	public void testDelete() {
 
 		Client client = new ClientImpl(TEST_HOST, TEST_PORT);
@@ -345,7 +338,6 @@ public class ClientImplTest extends TestCase {
 		popWatchedTubes(client, tubeNames);
 	}
 
-	
 	public void testRelease() {
 
 		Client client = new ClientImpl(TEST_HOST, TEST_PORT);
@@ -358,8 +350,7 @@ public class ClientImplTest extends TestCase {
 
 		// producer
 		client.useTube((String) tubeNames[1]);
-		long jobId = client.put(65536, timeoutSeconds, 120, srcString
-				.getBytes());
+		long jobId = client.put(65536, timeoutSeconds, 120, srcString.getBytes());
 		assertTrue(jobId > 0);
 
 		// not found
@@ -387,7 +378,6 @@ public class ClientImplTest extends TestCase {
 		popWatchedTubes(client, tubeNames);
 	}
 
-	
 	public void testBuryKick() {
 
 		Client client = new ClientImpl(TEST_HOST, TEST_PORT);
@@ -439,7 +429,6 @@ public class ClientImplTest extends TestCase {
 		popWatchedTubes(client, tubeNames);
 	}
 
-	
 	public void testTouch() {
 
 		Client client = new ClientImpl(TEST_HOST, TEST_PORT);
@@ -484,7 +473,6 @@ public class ClientImplTest extends TestCase {
 
 		popWatchedTubes(client, tubeNames);
 	}
-	
 
 	// ****************************************************************
 	// Consumer methods
@@ -501,7 +489,6 @@ public class ClientImplTest extends TestCase {
 		}
 	}
 
-	
 	public void testListTubes() {
 		Client client = new ClientImpl(TEST_HOST, TEST_PORT);
 		List<String> list = client.listTubes();
@@ -515,7 +502,6 @@ public class ClientImplTest extends TestCase {
 		}
 	}
 
-	
 	public void testListTubesWatched() {
 		Client client = new ClientImpl(TEST_HOST, TEST_PORT);
 		List<String> list = client.listTubesWatched();
@@ -547,7 +533,6 @@ public class ClientImplTest extends TestCase {
 		assertFalse(list.contains(tubeName));
 
 	}
-	
 
 	public void testStats() {
 		Client client = new ClientImpl(TEST_HOST, TEST_PORT);
@@ -561,7 +546,6 @@ public class ClientImplTest extends TestCase {
 			}
 		}
 	}
-	
 
 	public void testStatsTube() {
 
@@ -598,7 +582,6 @@ public class ClientImplTest extends TestCase {
 
 		popWatchedTubes(client, tubeNames);
 	}
-	
 
 	public void testStatsJob() {
 
@@ -633,7 +616,6 @@ public class ClientImplTest extends TestCase {
 
 		popWatchedTubes(client, tubeNames);
 	}
-	
 
 	// ****************************************************************
 	// Consumer methods
@@ -695,7 +677,6 @@ public class ClientImplTest extends TestCase {
 		popWatchedTubes(client, tubeNames);
 	}
 
-	
 	public void testReady() {
 
 		Client client = new ClientImpl(TEST_HOST, TEST_PORT);
@@ -740,8 +721,7 @@ public class ClientImplTest extends TestCase {
 
 		popWatchedTubes(client, tubeNames);
 	}
-	
-	
+
 	public void testDelayed() {
 
 		Client client = new ClientImpl(TEST_HOST, TEST_PORT);
@@ -757,19 +737,18 @@ public class ClientImplTest extends TestCase {
 		// note we adjust delay
 		long jobId = client.put(65536, delaySeconds, 120, srcString.getBytes());
 		assertTrue(jobId > 0);
-	
-		
+
 		// peekDelayed
 		Job job = client.peekDelayed();
 		assertNotNull(job);
 		assertEquals(jobId, job.getJobId());
-		
+
 		try {
 			Thread.sleep(delaySeconds * 1000);
 		} catch (Exception e) {
-			
+
 		}
-	
+
 		// reserve and delete
 		job = client.reserve(null);
 		assertNotNull(job);
@@ -782,8 +761,7 @@ public class ClientImplTest extends TestCase {
 
 		popWatchedTubes(client, tubeNames);
 	}
-	
-	
+
 	public void testBuried() {
 
 		Client client = new ClientImpl(TEST_HOST, TEST_PORT);
@@ -792,25 +770,25 @@ public class ClientImplTest extends TestCase {
 		client.useTube((String) tubeNames[1]);
 
 		String srcString = "testPeekBuried";
-		
+
 		// peekBuried
 		Job job = client.peekBuried();
 		assertNull(job);
-		
+
 		// producer
-		long jobId = client.put(65536, 0, 120, srcString .getBytes());
+		long jobId = client.put(65536, 0, 120, srcString.getBytes());
 		assertTrue(jobId > 0);
-		
+
 		// peekBuried
 		job = client.peekBuried();
 		assertNull(job);
-		
+
 		// reserve and bury
 		job = client.reserve(null);
 		assertNotNull(job);
 		assertEquals(jobId, job.getJobId());
 		client.bury(job.getJobId(), 65536);
-		
+
 		// peekBuried
 		job = client.peekBuried();
 		assertNotNull(job);
@@ -825,7 +803,7 @@ public class ClientImplTest extends TestCase {
 
 		popWatchedTubes(client, tubeNames);
 	}
-	
+
 	public void testClose() {
 		Client client = new ClientImpl(TEST_HOST, TEST_PORT);
 		String s = client.listTubeUsed();
@@ -860,11 +838,9 @@ public class ClientImplTest extends TestCase {
 		String remoteHost = TEST_HOST;
 		int nIterations = 100;
 		for (int i = 0; i < nIterations; ++i) {
-			Set<Boolean> blockModes = new HashSet<Boolean>(Arrays
-					.asList(new Boolean[] { false, true }));
+			Set<Boolean> blockModes = new HashSet<Boolean>(Arrays.asList(new Boolean[] { false, true }));
 			for (boolean useBlockIO : blockModes) {
-				Client client = new ClientImpl(remoteHost, TEST_PORT,
-						useBlockIO);
+				Client client = new ClientImpl(remoteHost, TEST_PORT, useBlockIO);
 
 				Object[] tubeNames = pushWatchedTubes(client);
 
@@ -887,75 +863,74 @@ public class ClientImplTest extends TestCase {
 				client.delete(job.getJobId());
 
 				popWatchedTubes(client, tubeNames);
-				
+
 				client.close();
 			}
 		}
 	}
-	
+
 	public void testNullArgs() {
 		Client client = new ClientImpl(TEST_HOST, TEST_PORT);
 
 		try {
 			client.ignore(null);
-			fail ("didn't throw");
-		} catch (BeanstalkException be ) {
+			fail("didn't throw");
+		} catch (BeanstalkException be) {
 			assertEquals("null tubeName", be.getMessage());
 		} catch (Exception e) {
-			fail("caught unexpected exception: " + e.getClass().getCanonicalName() + ", " + e.getMessage() );
+			fail("caught unexpected exception: " + e.getClass().getCanonicalName() + ", " + e.getMessage());
 		}
-		
+
 		try {
 			client.useTube(null);
-			fail ("didn't throw");
-		} catch (BeanstalkException be ) {
+			fail("didn't throw");
+		} catch (BeanstalkException be) {
 			assertEquals("null tubeName", be.getMessage());
 		} catch (Exception e) {
-			fail("caught unexpected exception: " + e.getClass().getCanonicalName() + ", " + e.getMessage() );
+			fail("caught unexpected exception: " + e.getClass().getCanonicalName() + ", " + e.getMessage());
 		}
-		
+
 		try {
 			client.watch(null);
-			fail ("didn't throw");
-		} catch (BeanstalkException be ) {
+			fail("didn't throw");
+		} catch (BeanstalkException be) {
 			assertEquals("null tubeName", be.getMessage());
 		} catch (Exception e) {
-			fail("caught unexpected exception: " + e.getClass().getCanonicalName() + ", " + e.getMessage() );
+			fail("caught unexpected exception: " + e.getClass().getCanonicalName() + ", " + e.getMessage());
 		}
 	}
-	
+
 	public void testPutPerformance() {
 		Client client = new ClientImpl(TEST_HOST, TEST_PORT);
-		
+
 		Object[] tubeNames = pushWatchedTubes(client);
 		client.useTube((String) tubeNames[1]);
-		
+
 		byte[] bytes = "testPutPerformance".getBytes();
 		int nIterations = 10;
 		long sumMillis = 0;
-		
+
 		for (int i = 0; i < nIterations; ++i) {
 			long startMillis = System.currentTimeMillis();
 			client.put(0, 0, 120, bytes);
-            long deltaMillis = System.currentTimeMillis() - startMillis;
-            sumMillis += deltaMillis;
+			long deltaMillis = System.currentTimeMillis() - startMillis;
+			sumMillis += deltaMillis;
 		}
-		
-        long averageMillis = sumMillis / nIterations;
-        assertTrue(averageMillis <= 2);
+
+		long averageMillis = sumMillis / nIterations;
+		assertTrue(averageMillis <= 2);
 	}
-	
-	
+
 	public void testIgnoreDefaultTube() {
 		Client client = new ClientImpl(TEST_HOST, TEST_PORT);
-		
+
 		final String DEFAULT_TUBE = "default";
 		List<String> tubeNames = client.listTubesWatched();
 		assertEquals(1, tubeNames.size());
-		assertEquals(DEFAULT_TUBE,tubeNames.get(0));
-		
+		assertEquals(DEFAULT_TUBE, tubeNames.get(0));
+
 		int watchCount = client.ignore(DEFAULT_TUBE);
 		assertEquals(-1, watchCount);
-	}	
+	}
 
 }
