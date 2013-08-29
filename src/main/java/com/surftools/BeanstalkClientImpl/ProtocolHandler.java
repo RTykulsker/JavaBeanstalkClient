@@ -2,25 +2,25 @@ package com.surftools.BeanstalkClientImpl;
 
 /*
 
-Copyright 2009-2010 Robert Tykulsker 
+ Copyright 2009-2013 Robert Tykulsker 
 
-This file is part of JavaBeanstalkCLient.
+ This file is part of JavaBeanstalkCLient.
 
-JavaBeanstalkCLient is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version, or alternatively, the BSD license supplied
-with this project in the file "BSD-LICENSE".
+ JavaBeanstalkCLient is free software: you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation, either version 3 of the License, or
+ (at your option) any later version, or alternatively, the BSD license supplied
+ with this project in the file "BSD-LICENSE".
 
-JavaBeanstalkCLient is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+ JavaBeanstalkCLient is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with JavaBeanstalkCLient.  If not, see <http://www.gnu.org/licenses/>.
+ You should have received a copy of the GNU General Public License
+ along with JavaBeanstalkCLient.  If not, see <http://www.gnu.org/licenses/>.
 
-*/
+ */
 
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
@@ -37,29 +37,29 @@ import java.util.Map;
 import com.surftools.BeanstalkClient.BeanstalkException;
 
 public class ProtocolHandler {
-	private static final byte[] CRLF = {'\r','\n'};
-	
+	private static final byte[] CRLF = { '\r', '\n' };
+
 	private Socket socket;
 	private boolean useBlockIO = false;
-	
-	ProtocolHandler(String host, int port) {		
+
+	ProtocolHandler(String host, int port) {
 		try {
 			socket = new Socket(host, port);
 		} catch (Exception e) {
 			throw new BeanstalkException(e.getMessage());
 		}
 	}
-		
+
 	Response processRequest(Request request) {
 		validateRequest(request);
-		
+
 		Response response = null;
 		InputStream is = null;
 		OutputStream os = null;
 
 		try {
 			// formulate the request ...
-			ByteArrayOutputStream baos = new ByteArrayOutputStream ();
+			ByteArrayOutputStream baos = new ByteArrayOutputStream();
 			baos.write(request.getCommand().getBytes());
 			baos.write(CRLF);
 			if (request.getData() != null) {
@@ -71,7 +71,7 @@ public class ProtocolHandler {
 			os.write(baos.toByteArray());
 			os.flush();
 			baos.close();
-			
+
 			is = socket.getInputStream();
 			String line = new String(readInputStream(is, 0));
 
@@ -79,7 +79,7 @@ public class ProtocolHandler {
 			if (tokens == null || tokens.length == 0) {
 				throw new BeanstalkException("no response");
 			}
-			
+
 			response = new Response();
 			response.setResponseLine(line);
 			String status = tokens[0];
@@ -88,7 +88,7 @@ public class ProtocolHandler {
 				response.setReponse(tokens[1]);
 			}
 			setState(request, response, status);
-			
+
 			switch (request.getExpectedResponse()) {
 			case Map:
 				if (response.isMatchError()) {
@@ -104,88 +104,89 @@ public class ProtocolHandler {
 					break;
 				}
 				int length = 0;
-				if( request.getExpectedDataLengthIndex() > 0 && tokens.length > request.getExpectedDataLengthIndex()) {
+				if (request.getExpectedDataLengthIndex() > 0 && tokens.length > request.getExpectedDataLengthIndex()) {
 					try {
 						length = Integer.parseInt(tokens[request.getExpectedDataLengthIndex()]);
-					} catch( NumberFormatException ex ) {
+					} catch (NumberFormatException ex) {
 						length = 0;
 					}
 				}
-				byte[] data = readInputStream( is, length );
+				byte[] data = readInputStream(is, length);
 				response.setData(data);
 				break;
 			default:
 				break;
 			}
-			
+
 		} catch (Exception e) {
 			throw new BeanstalkException(e.getMessage());
 		}
 		return response;
 	}
-	
-	
-	private byte[] readInputStream(InputStream is, int expectedLength ) {
+
+	private byte[] readInputStream(InputStream is, int expectedLength) {
 		if (is == null) {
 			return null;
 		}
-		
+
 		byte[] data;
-		
-		if( expectedLength > 0 && useBlockIO ) {
-			data = readInputStreamBurstMode( is, expectedLength );
+
+		if (expectedLength > 0 && useBlockIO) {
+			data = readInputStreamBurstMode(is, expectedLength);
 		} else {
-			data = readInputStreamSlowMode( is );
+			data = readInputStreamSlowMode(is);
 		}
 		return data;
 	}
-	
-	private byte[] readInputStreamBurstMode( InputStream is, int length ) {
-		
+
+	private byte[] readInputStreamBurstMode(InputStream is, int length) {
+
 		try {
 			byte[] data = new byte[length];
 			// changes per alaz
 			int off = 0;
 			int toRead = length - off;
 			while (toRead > 0) {
-				int readLength = is.read( data, off, toRead);
+				int readLength = is.read(data, off, toRead);
 				if (readLength == -1) {
-					throw new BeanstalkException(String.format("The end of InputStream is reached - %d bytes expected, %d bytes read", length, off + readLength) );
+					throw new BeanstalkException(String.format(
+							"The end of InputStream is reached - %d bytes expected, %d bytes read", length, off
+									+ readLength));
 				}
 				off += readLength;
 				toRead = length - off;
 			}
-			byte br = (byte)is.read();
-			byte bn = (byte)is.read();
-			if( br != '\r' || bn != '\n' ) {
-				throw new BeanstalkException( "The end of InputStream is reached - End of line expected, but not found" );
+			byte br = (byte) is.read();
+			byte bn = (byte) is.read();
+			if (br != '\r' || bn != '\n') {
+				throw new BeanstalkException("The end of InputStream is reached - End of line expected, but not found");
 			}
 			return data;
-			
-		} catch( IOException ex ) {
+
+		} catch (IOException ex) {
 			throw new BeanstalkException(ex.getMessage());
 		}
 	}
-	
-	private byte[] readInputStreamSlowMode( InputStream is ) {
+
+	private byte[] readInputStreamSlowMode(InputStream is) {
 		boolean lastByteWasReturnByte = false;
 		ByteArrayOutputStream baos = new ByteArrayOutputStream();
 		try {
 			while (true) {
 				int intB = is.read();
 				byte b = (byte) intB;
-				
+
 				/**
-				 * prevent OutOfMemory exceptions, per leopoldkot			
+				 * prevent OutOfMemory exceptions, per leopoldkot
 				 */
-				if  (intB == -1) { 
+				if (intB == -1) {
 					throw new BeanstalkException("The end of InputStream is reached");
 				}
-			
+
 				if (b == '\n' && lastByteWasReturnByte) {
 					break;
 				}
-				if( b == '\r' ) {
+				if (b == '\r') {
 					lastByteWasReturnByte = true;
 				} else {
 					if (lastByteWasReturnByte) {
@@ -196,28 +197,27 @@ public class ProtocolHandler {
 				}
 			}
 			return baos.toByteArray();
-		} catch(Exception e) {
+		} catch (Exception e) {
 			throw new BeanstalkException(e.getMessage());
 		}
 	}
-	
+
 	private void validateRequest(Request request) {
 		if (request == null) {
 			throw new BeanstalkException("null request");
 		}
-		
+
 		String command = request.getCommand();
 		if (command == null || command.length() == 0) {
 			throw new BeanstalkException("null or empty command");
 		}
-		
+
 		String[] validStates = request.getValidStates();
 		if (validStates == null || validStates.length == 0) {
 			throw new BeanstalkException("null or empty validStates");
 		}
 	}
-	
-	
+
 	private void setState(Request request, Response response, String status) {
 		for (String s : request.getValidStates()) {
 			if (status.equals(s)) {
@@ -225,7 +225,7 @@ public class ProtocolHandler {
 				break;
 			}
 		}
-			
+
 		if (!response.isMatchOk() && request.getErrorStates() != null) {
 			for (String s : request.getErrorStates()) {
 				if (status.equals(s)) {
@@ -234,14 +234,13 @@ public class ProtocolHandler {
 				}
 			}
 		}
-	
+
 		if (!response.isMatchOk() && !response.isMatchError()) {
 			throw new BeanstalkException(status);
 		}
 	}
-	
-	
-	private Map<String,String> parseForMap(InputStream is) {
+
+	private Map<String, String> parseForMap(InputStream is) {
 		Map<String, String> map = new LinkedHashMap<String, String>();
 		String line = null;
 		try {
@@ -260,9 +259,8 @@ public class ProtocolHandler {
 			throw new BeanstalkException(e.getMessage());
 		}
 		return map;
-	}	
-	
-	
+	}
+
 	private List<String> parseForList(InputStream is) {
 		List<String> list = new ArrayList<String>();
 		String line = null;
@@ -282,7 +280,7 @@ public class ProtocolHandler {
 		}
 		return list;
 	}
-	
+
 	public void close() {
 		if (socket != null && !socket.isClosed()) {
 			try {
@@ -300,6 +298,5 @@ public class ProtocolHandler {
 	public boolean isUseBlockIO() {
 		return useBlockIO;
 	}
-
 
 }

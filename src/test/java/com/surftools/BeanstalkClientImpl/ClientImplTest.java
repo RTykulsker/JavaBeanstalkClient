@@ -56,8 +56,7 @@ public class ClientImplTest extends TestCase {
 	// ****************************************************************
 
 	/**
-	 * ignore all currently watched tubes, retuned in ret[0] watch a new tube,
-	 * returned in ret[1]
+	 * ignore all currently watched tubes, retuned in ret[0] watch a new tube, returned in ret[1]
 	 */
 	Object[] pushWatchedTubes(Client client) {
 		Object[] tubeNames = new Object[2];
@@ -91,11 +90,11 @@ public class ClientImplTest extends TestCase {
 		String serverVersion = client.getServerVersion();
 		assertNotNull(serverVersion);
 		String[] tokens = serverVersion.split(VERSION_DELIMITERS);
-		assertTrue(tokens.length >= 3);
+		assertTrue(tokens.length >= 2);
 
 		int majorVersion = Integer.parseInt(tokens[0]);
 		int minorVersion = Integer.parseInt(tokens[1]);
-		int dotVersion = Integer.parseInt(tokens[2]);
+		int dotVersion = tokens.length == 2 ? 0 : Integer.parseInt(tokens[2]);
 
 		if (majorVersion == 1 && minorVersion == 4 && dotVersion >= 4) {
 			return true;
@@ -119,11 +118,11 @@ public class ClientImplTest extends TestCase {
 		assertNotNull(serverVersion);
 
 		String[] tokens = serverVersion.split(VERSION_DELIMITERS);
-		assertTrue(tokens.length >= 3);
+		assertTrue(tokens.length >= 2);
 
 		int majorVersion = Integer.parseInt(tokens[0]);
 		int minorVersion = Integer.parseInt(tokens[1]);
-		int dotVersion = Integer.parseInt(tokens[2]);
+		int dotVersion = tokens.length == 2 ? 0 : Integer.parseInt(tokens[2]);
 		assertTrue((majorVersion == 1 && minorVersion == 4 && dotVersion >= 4)
 				|| (majorVersion >= 1 && minorVersion >= 5));
 	}
@@ -423,6 +422,51 @@ public class ClientImplTest extends TestCase {
 		assertNotNull(job);
 		assertEquals(jobId, job.getJobId());
 		assertEquals(srcString, new String(job.getData()));
+
+		client.delete(jobId);
+
+		popWatchedTubes(client, tubeNames);
+	}
+
+	public void testBuryKickJob() {
+
+		Client client = new ClientImpl(TEST_HOST, TEST_PORT);
+
+		Object[] tubeNames = pushWatchedTubes(client);
+
+		String srcString = "testBuryKickJob";
+
+		// nothing to bury
+		boolean ok = false;
+		ok = client.bury(0, 65536);
+		assertFalse(ok);
+
+		// producer
+		client.useTube((String) tubeNames[1]);
+		long jobId = client.put(65536, 0, 120, srcString.getBytes());
+		assertTrue(jobId > 0);
+
+		// we haven't reserved, so we can't bury
+		ok = client.bury(jobId, 65536);
+		assertFalse(ok);
+
+		// we can bury
+		Job job = client.reserve(0);
+		assertNotNull(job);
+		ok = client.bury(jobId, 65536);
+		assertTrue(ok);
+
+		// nothing to reserve
+		job = client.reserve(0);
+		assertNull(job);
+
+		// kick non-existent job
+		ok = client.kickJob(Integer.MAX_VALUE);
+		assertFalse(ok);
+
+		// kick something
+		ok = client.kickJob(jobId);
+		assertTrue(ok);
 
 		client.delete(jobId);
 
@@ -931,6 +975,43 @@ public class ClientImplTest extends TestCase {
 
 		int watchCount = client.ignore(DEFAULT_TUBE);
 		assertEquals(-1, watchCount);
+	}
+
+	public void testPauseTube() {
+
+		Client client = new ClientImpl(TEST_HOST, TEST_PORT);
+
+		Object[] tubeNames = pushWatchedTubes(client);
+		client.useTube((String) tubeNames[1]);
+
+		String srcString = "testPauseTube";
+		int delaySeconds = 0;
+		int tubeDelay = 3;
+
+		// producer
+		client.useTube((String) tubeNames[1]);
+		// now pause the tube
+		client.pauseTube((String) tubeNames[1], tubeDelay);
+
+		// note we adjust delay
+		long jobId = client.put(65536, delaySeconds, 120, srcString.getBytes());
+		assertTrue(jobId > 0);
+
+		// peekReady (but we still can't reserve because of tube delay)
+		Job job = client.peekReady();
+		assertNotNull(job);
+		assertEquals(jobId, job.getJobId());
+
+		// reserve with timeout a little less than tube pause time
+		job = client.reserve(tubeDelay - 1);
+		assertNull(job);
+
+		// now wait for tube to become un-paused
+		job = client.reserve(2);
+		assertNotNull(job);
+		assertEquals(jobId, job.getJobId());
+
+		popWatchedTubes(client, tubeNames);
 	}
 
 }

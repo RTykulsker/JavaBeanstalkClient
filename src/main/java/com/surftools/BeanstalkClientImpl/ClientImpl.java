@@ -22,6 +22,7 @@ package com.surftools.BeanstalkClientImpl;
 
  */
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -31,8 +32,10 @@ import com.surftools.BeanstalkClient.Job;
 
 public class ClientImpl implements Client {
 
-	private static final String VERSION = "1.5.0";
+	private static final String VERSION = "1.6.0";
 	private static final long MAX_PRIORITY = 4294967296L;
+	private static String DEFAULT_HOST = "localhost";
+	private static final int DEFAULT_PORT = 11300;
 
 	private String host;
 	private int port;
@@ -256,6 +259,13 @@ public class ClientImpl implements Client {
 		return count;
 	}
 
+	@Override
+	public boolean kickJob(long jobId) {
+		Request request = new Request("kick-job " + jobId, "KICKED", "NOT_FOUND", null, ExpectedResponse.None);
+		Response response = getProtocolHandler().processRequest(request);
+		return response != null && response.isMatchOk();
+	}
+
 	// ****************************************************************
 	// Consumer methods
 	// stats-related
@@ -308,6 +318,8 @@ public class ClientImpl implements Client {
 		List<String> list = null;
 		if (response != null && response.isMatchOk()) {
 			list = (List<String>) response.getData();
+		} else {
+			list = new ArrayList<String>(0);
 		}
 		return list;
 	}
@@ -331,6 +343,8 @@ public class ClientImpl implements Client {
 		List<String> list = null;
 		if (response != null && response.isMatchOk()) {
 			list = (List<String>) response.getData();
+		} else {
+			return new ArrayList<String>(0);
 		}
 		return list;
 	}
@@ -353,6 +367,17 @@ public class ClientImpl implements Client {
 	@Override
 	public void setUniqueConnectionPerThread(boolean uniqueConnectionPerThread) {
 		this.uniqueConnectionPerThread = uniqueConnectionPerThread;
+	}
+
+	@Override
+	public boolean pauseTube(String tubeName, int pauseSeconds) {
+		Request request = new Request("pause-tube " + tubeName + " " + pauseSeconds, "PAUSED", null, null,
+				ExpectedResponse.None);
+		Response response = getProtocolHandler().processRequest(request);
+		if (response != null && response.isMatchOk()) {
+			return true;
+		}
+		return false;
 	}
 
 	@Override
