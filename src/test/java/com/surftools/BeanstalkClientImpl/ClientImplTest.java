@@ -2,7 +2,7 @@ package com.surftools.BeanstalkClientImpl;
 
 /*
 
- Copyright 2009-2013 Robert Tykulsker 
+ Copyright 2009-2020 Robert Tykulsker 
 
  This file is part of JavaBeanstalkCLient.
 
@@ -26,22 +26,22 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
-
-import junit.framework.Test;
-import junit.framework.TestCase;
-import junit.framework.TestSuite;
 
 import com.surftools.BeanstalkClient.BeanstalkException;
 import com.surftools.BeanstalkClient.Client;
 import com.surftools.BeanstalkClient.Job;
 
+import junit.framework.Test;
+import junit.framework.TestCase;
+import junit.framework.TestSuite;
+
 public class ClientImplTest extends TestCase {
 
 	private String TEST_HOST = "localhost";
 	private int TEST_PORT = 11300;
-	private static final String VERSION_DELIMITERS = "[.\\+]+";
 
 	public ClientImplTest(String testName) {
 		super(testName);
@@ -87,24 +87,41 @@ public class ClientImplTest extends TestCase {
 	private boolean serverSupportsUnderscoreInTubeName(Client client) {
 		assertNotNull(client);
 
-		String serverVersion = client.getServerVersion();
-		assertNotNull(serverVersion);
-		String[] tokens = serverVersion.split(VERSION_DELIMITERS);
-		assertTrue(tokens.length >= 2);
+		String serverVersionString = client.getServerVersion();
+		assertNotNull(serverVersionString);
+		ServerVersion serverVersion = new ServerVersion(serverVersionString);
 
-		int majorVersion = Integer.parseInt(tokens[0]);
-		int minorVersion = Integer.parseInt(tokens[1]);
-		int dotVersion = tokens.length == 2 ? 0 : Integer.parseInt(tokens[2]);
-
-		if (majorVersion == 1 && minorVersion == 4 && dotVersion >= 4) {
+		if (serverVersion.major == 1 && serverVersion.minor == 4 && serverVersion.dot >= 4) {
 			return true;
 		}
 
-		if (majorVersion >= 1 && minorVersion >= 5) {
+		if (serverVersion.major >= 1 && serverVersion.minor >= 5) {
 			return true;
 		}
 
 		return false;
+	}
+
+	private class ServerVersion {
+		final int major;
+		final int minor;
+		final int dot;
+
+		public ServerVersion(String str) {
+			assertEquals('"', str.charAt(0));
+			assertEquals('"', str.charAt(str.length() - 1));
+			str = str.substring(1, str.length() - 1);
+			String[] tokens = str.split("\\.");
+			assertTrue(tokens.length >= 2);
+			assertTrue(tokens.length <= 3);
+			major = Integer.parseInt(tokens[0]);
+			minor = Integer.parseInt(tokens[1]);
+			if (tokens.length == 3) {
+				dot = Integer.parseInt(tokens[2]);
+			} else {
+				dot = 0;
+			}
+		}
 	}
 
 	// ****************************************************************
@@ -114,17 +131,13 @@ public class ClientImplTest extends TestCase {
 	public void testGetServerVersion() {
 		Client client = new ClientImpl(TEST_HOST, TEST_PORT);
 
-		String serverVersion = client.getServerVersion();
-		assertNotNull(serverVersion);
+		String serverVersionString = client.getServerVersion();
+		assertNotNull(serverVersionString);
 
-		String[] tokens = serverVersion.split(VERSION_DELIMITERS);
-		assertTrue(tokens.length >= 2);
+		ServerVersion serverVersion = new ServerVersion(serverVersionString);
 
-		int majorVersion = Integer.parseInt(tokens[0]);
-		int minorVersion = Integer.parseInt(tokens[1]);
-		int dotVersion = tokens.length == 2 ? 0 : Integer.parseInt(tokens[2]);
-		assertTrue((majorVersion == 1 && minorVersion == 4 && dotVersion >= 4)
-				|| (majorVersion >= 1 && minorVersion >= 5));
+		assertTrue((serverVersion.major == 1 && serverVersion.minor == 4 && serverVersion.dot >= 4)
+				|| (serverVersion.major >= 1 && serverVersion.minor >= 5));
 	}
 
 	public void testBinaryData() {
@@ -309,6 +322,36 @@ public class ClientImplTest extends TestCase {
 
 		job = client.reserve(timeoutSeconds);
 		assertNull(job);
+
+		popWatchedTubes(client, tubeNames);
+	}
+
+	public void testReserveJob() {
+		Client client = new ClientImpl(TEST_HOST, TEST_PORT);
+
+		Object[] tubeNames = pushWatchedTubes(client);
+
+		String srcString = "testReserveJob";
+
+		// producer
+		client.useTube((String) tubeNames[1]);
+		long jobId = client.put(65536, 0, 120, srcString.getBytes());
+		assertTrue(jobId > 0);
+
+		// consumer
+		Job job = client.reserveJob(-1);
+		assertNull(job);
+
+		// consumer
+		job = client.reserveJob(jobId);
+		assertNotNull(job);
+		long newJobId = job.getJobId();
+		assertEquals(jobId, newJobId);
+
+		String dstString = new String(job.getData());
+		assertEquals(srcString, dstString);
+
+		client.delete(job.getJobId());
 
 		popWatchedTubes(client, tubeNames);
 	}
@@ -1014,4 +1057,44 @@ public class ClientImplTest extends TestCase {
 		popWatchedTubes(client, tubeNames);
 	}
 
+	/**
+	 * For some reason protocol cannot handle random binary data. Throws
+	 * com.surftools.BeanstalkClient.BeanstalkException: �L�bbs�4Y�N�Sk|� (garbage)
+	 */
+	public void testDeathByRandom() throws Exception {
+		Client client = new ClientImpl();
+
+		Map<String, String> statsMap = client.stats();
+		int maxJobSize = Integer.parseInt(statsMap.get("max-job-size"));
+
+		int jobSize = Math.min(maxJobSize, 10);
+		Random rng = new Random();
+		byte[] jobData = new byte[maxJobSize];
+		Arrays.fill(jobData, (byte) 0xff);
+
+		for (boolean doFill : new boolean[] { false, true }) {
+			for (int i = 0; i < 100; ++i) {
+
+				if (doFill) {
+					continue;
+				}
+
+				if (doFill) {
+					rng.nextBytes(jobData); // <------<< comment this line and it works fine
+				}
+
+				try {
+					long jid = client.put(0, 0, 0, jobData);
+					// System.out.println("Inserted:" + jid);
+					Job job = client.reserve(-1); // blocking wait
+					jid = job.getJobId();
+					// System.out.println("Deleting:" + jid);
+					client.delete(jid);
+				} catch (Exception e) {
+					fail("caught Exception: doFill: " + doFill + ",  iteration: " + i + ", job size: " + jobSize + ", "
+							+ e.getMessage());
+				}
+			}
+		}
+	}
 }

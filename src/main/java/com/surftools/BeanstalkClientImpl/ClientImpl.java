@@ -2,7 +2,7 @@ package com.surftools.BeanstalkClientImpl;
 
 /*
 
- Copyright 2009-2013 Robert Tykulsker 
+ Copyright 2009-2020 Robert Tykulsker 
 
  This file is part of JavaBeanstalkCLient.
 
@@ -123,8 +123,8 @@ public class ClientImpl implements Client {
 	public Job reserve(Integer timeoutSeconds) {
 		Job job = null;
 		String command = (timeoutSeconds == null) ? "reserve" : "reserve-with-timeout " + timeoutSeconds.toString();
-		Request request = new Request(command, new String[] { "RESERVED" }, new String[] { "DEADLINE_SOON",
-				"TIMED_OUT", }, null, ExpectedResponse.ByteArray, 2);
+		Request request = new Request(command, new String[] { "RESERVED" },
+				new String[] { "DEADLINE_SOON", "TIMED_OUT", }, null, ExpectedResponse.ByteArray, 2);
 		Response response = getProtocolHandler().processRequest(request);
 		if (response != null && response.getStatus().equals("DEADLINE_SOON")) {
 			BeanstalkException be = new BeanstalkException(response.getStatus());
@@ -133,6 +133,30 @@ public class ClientImpl implements Client {
 		if (response != null && response.isMatchOk()) {
 			long jobId = Long.parseLong(response.getReponse());
 			job = new JobImpl(jobId);
+			job.setData((byte[]) response.getData());
+		}
+		return job;
+	}
+
+	@Override
+	public Job reserveJob(long jobId) {
+		Job job = null;
+		Request request = new Request("reserve-job " + jobId, new String[] { "RESERVED" },
+				new String[] { "NOT_FOUND", "BAD_FORMAT" }, null, ExpectedResponse.ByteArray);
+		Response response = getProtocolHandler().processRequest(request);
+
+		if (response == null) {
+			BeanstalkException be = new BeanstalkException("unexpected null response");
+			throw be;
+		}
+
+		if (response.isMatchError()) {
+			return null;
+		}
+
+		if (response != null && response.isMatchOk()) {
+			long newJobId = Long.parseLong(response.getReponse());
+			job = new JobImpl(newJobId);
 			job.setData((byte[]) response.getData());
 		}
 		return job;
@@ -200,7 +224,8 @@ public class ClientImpl implements Client {
 	@Override
 	public Job peek(long jobId) {
 		Job job = null;
-		Request request = new Request("peek " + jobId, "FOUND", "NOT_FOUND", null, ExpectedResponse.ByteArray, 2);
+		Request request = new Request("peek " + jobId, "FOUND", new String[] { "NOT_FOUND", "BAD_FORMAT" }, null,
+				ExpectedResponse.ByteArray, 2);
 		Response response = getProtocolHandler().processRequest(request);
 		if (response != null && response.isMatchOk()) {
 			jobId = Long.parseLong(response.getReponse());
@@ -388,4 +413,5 @@ public class ClientImpl implements Client {
 		}
 		return stats.get("version").trim();
 	}
+
 }

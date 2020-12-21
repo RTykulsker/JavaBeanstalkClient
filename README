@@ -8,7 +8,7 @@ To use, simply add the dependency to your POM:
 <dependency>
   <groupId>com.surftools</groupId>
   <artifactId>BeanstalkClient</artifactId>
-  <version>1.6.0</version>
+  <version>1.7.0</version>
 </dependency>
 
 This client library is designed to operate with other client libraries; 
@@ -22,3 +22,5 @@ Documentation on how to use Beanstalkd is available at
 see https://github.com/kr/beanstalkd/blob/master/doc/protocol.txt
 and
 http://github.com/earl/beanstalkc/tree/master
+
+updated to work with beanstalkd 1.12; reserve-job command implemented

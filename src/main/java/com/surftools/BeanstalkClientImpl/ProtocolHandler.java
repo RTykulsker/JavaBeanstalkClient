@@ -2,7 +2,7 @@ package com.surftools.BeanstalkClientImpl;
 
 /*
 
- Copyright 2009-2013 Robert Tykulsker 
+ Copyright 2009-2020 Robert Tykulsker 
 
  This file is part of JavaBeanstalkCLient.
 
@@ -149,9 +149,9 @@ public class ProtocolHandler {
 			while (toRead > 0) {
 				int readLength = is.read(data, off, toRead);
 				if (readLength == -1) {
-					throw new BeanstalkException(String.format(
-							"The end of InputStream is reached - %d bytes expected, %d bytes read", length, off
-									+ readLength));
+					throw new BeanstalkException(
+							String.format("The end of InputStream is reached - %d bytes expected, %d bytes read",
+									length, off + readLength));
 				}
 				off += readLength;
 				toRead = length - off;

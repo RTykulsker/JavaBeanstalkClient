@@ -2,7 +2,7 @@ package com.surftools.BeanstalkClient;
 
 /*
 
- Copyright 2009-2013 Robert Tykulsker 
+ Copyright 2009-2020 Robert Tykulsker
 
  This file is part of JavaBeanstalkCLient.
 
@@ -91,8 +91,19 @@ public interface Client {
 	public Job reserve(Integer timeoutSeconds);
 
 	/**
+	 * A job can be reserved by its id. Once a job is reserved for the client, the client has limited time to run (TTR)
+	 * the job before the job times out. When the job times out, the server will put the job back into the ready queue.
 	 * 
-	 The delete command removes a job from the server entirely. It is normally used by the client when the job has
+	 * @param jobId
+	 * 
+	 * @return Job or null if the job does not exist or reserved by a client or is not either ready, buried or delayed.
+	 * 
+	 */
+	public Job reserveJob(long jobId);
+
+	/**
+	 * 
+	 * The delete command removes a job from the server entirely. It is normally used by the client when the job has
 	 * successfully run to completion. A client can delete jobs that it has reserved, ready jobs, delayed jobs, and jobs
 	 * that are buried.
 	 * 

@@ -2,7 +2,7 @@ package com.surftools.BeanstalkClient;
 
 /* 
 
- Copyright 2009-2013 Robert Tykulsker 
+ Copyright 2009-2020 Robert Tykulsker 
 
  This file is part of JavaBeanstalkCLient.
 

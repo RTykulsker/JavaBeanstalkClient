@@ -2,7 +2,7 @@ package com.surftools.BeanstalkClientImpl;
 
 /*
 
- Copyright 2009-2013 Robert Tykulsker 
+ Copyright 2009-2020 Robert Tykulsker 
 
  This file is part of JavaBeanstalkCLient.
 
@@ -49,7 +49,8 @@ public class Request {
 		this.expectedDataLengthIndex = expectedDataLengthIndex;
 	}
 
-	public Request(String command, String validState, String errorState, byte[] data, ExpectedResponse expectedResponse) {
+	public Request(String command, String validState, String errorState, byte[] data,
+			ExpectedResponse expectedResponse) {
 		this.command = command;
 
 		if (validState != null) {
@@ -65,10 +66,24 @@ public class Request {
 		this.expectedDataLengthIndex = -1;
 	}
 
-	public Request(String command, String validState, String errorState, byte[] data,
-			ExpectedResponse expectedResponse, int expectedDataLengthIndex) {
+	public Request(String command, String validState, String errorState, byte[] data, ExpectedResponse expectedResponse,
+			int expectedDataLengthIndex) {
 		this(command, validState, errorState, data, expectedResponse);
 		this.expectedDataLengthIndex = expectedDataLengthIndex;
+	}
+
+	public Request(String command, String validState, String[] errorStates, byte[] data,
+			ExpectedResponse expectedResponse, int expectedDataLengthIndex) {
+
+		this.command = command;
+
+		if (validState != null) {
+			this.validStates = new String[] { validState };
+		}
+		this.errorStates = errorStates;
+		this.data = data;
+		this.expectedResponse = expectedResponse;
+		this.expectedDataLengthIndex = -1;
 	}
 
 	public String getCommand() {
